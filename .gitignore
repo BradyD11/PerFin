@@ -1,0 +1,11 @@
+dist-newstyle/
+*.db
+*.db-journal
+.ghc.environment.*
+
+# Project instructions (local only)
+CLAUDE.md
+
+# Real financial data — never commit
+data/
+*.csv
