@@ -2,6 +2,7 @@
 
 module Persistence.DBSpec (tests) where
 
+import qualified Data.Text         as T
 import           Data.Time         (Day, fromGregorian)
 import           Database.SQLite.Simple (Connection)
 import           System.IO.Temp    (withSystemTempDirectory)
@@ -131,6 +132,34 @@ tests = testGroup "Persistence.DB"
         nwAfter <- netWorth conn
         nwAfter @?= nwBefore
 
+
+  , testGroup "overlapping statements (drawn from two real exports)"
+    [ testCase "the overlap is imported exactly once, either order" $ do
+        -- June 17-20 appears in both of the real credit card exports, with
+        -- identical rows -- including a duplicate PATH fare on 06/18, which
+        -- is the collision case the occurrence index exists for.
+        -- laterExport contains all 5 overlap rows plus 2 of its own, so the
+        -- union is 7 -- not 12, which is what double-counting would give.
+        forwards  <- runImports [earlierExport, laterExport]
+        backwards <- runImports [laterExport, earlierExport]
+        forwards  @?= 7
+        backwards @?= 7
+
+    , testCase "import order does not change the stored sum" $ do
+        a <- runImportsSum [earlierExport, laterExport]
+        b <- runImportsSum [laterExport, earlierExport]
+        a @?= b
+
+    , testCase "both duplicate PATH fares survive the overlap" $
+        withTestDb $ \conn -> do
+          initAccountBalance conn card Liability (Cents 0)
+          _ <- importRows conn today card earlierExport
+          _ <- importRows conn today card laterExport
+          txs <- allTransactions conn
+          let paths = [t | t@(_, _, _, m, _) <- txs, "PATH" `T.isPrefixOf` m]
+          length paths @?= 2
+    ]
+
   , testCase "a future-dated row is rejected at the domain boundary" $
       withTestDb $ \conn -> do
         initAccountBalance conn card Liability (Cents 0)
@@ -140,3 +169,32 @@ tests = testGroup "Persistence.DB"
           Left _  -> pure ()
           Right _ -> assertFailure "should have rejected a future date"
   ]
+
+-- | The June 17-20 window, verbatim from the earlier real export.
+earlierExport :: [RawRow]
+earlierExport =
+  [ RawRow (fromGregorian 2026 6 17) (Cents (-5306)) "JUBILEE MARKET PLACE NEW YORK NY" 2
+  , RawRow (fromGregorian 2026 6 17) (Cents  (-651)) "OKI MART & DELI JAPANESE NEW YORK NY" 3
+  , RawRow (fromGregorian 2026 6 18) (Cents  (-325)) "PATH TAPP PAYGO CP JERSEY CITY NJ" 4
+  , RawRow (fromGregorian 2026 6 18) (Cents  (-325)) "PATH TAPP PAYGO CP JERSEY CITY NJ" 5
+  , RawRow (fromGregorian 2026 6 20) (Cents  (-543)) "LUCKIN COFFEE LKCOFFEE.COM NJ" 6
+  ]
+
+-- | The same window as it appears in the later export, plus rows only it has.
+laterExport :: [RawRow]
+laterExport = earlierExport ++
+  [ RawRow (fromGregorian 2026 7 13) (Cents  50000) "ONLINE PAYMENT THANK YOU" 7
+  , RawRow (fromGregorian 2026 9 12) (Cents  (-1262)) "SQ *TACO BOYS (S MILL AVETempe AZ" 8
+  ]
+
+runImports :: [[RawRow]] -> IO Int
+runImports batches = withTestDb $ \conn -> do
+  initAccountBalance conn card Liability (Cents 0)
+  mapM_ (importRows conn today card) batches
+  length <$> allTransactions conn
+
+runImportsSum :: [[RawRow]] -> IO Cents
+runImportsSum batches = withTestDb $ \conn -> do
+  initAccountBalance conn card Liability (Cents 0)
+  mapM_ (importRows conn today card) batches
+  accountBalance conn card

@@ -9,8 +9,8 @@ follow from that.
 
 ## Status
 
-Milestones 1–5 are complete and tested end to end against a real 339-row
-credit card export: 111 tests, clean under `-Wall`.
+Milestones 1–5 are complete and tested end to end against two real credit
+card exports (339 and 125 rows, overlapping): 114 tests, clean under `-Wall`.
 
 ## Quick start
 
@@ -127,16 +127,20 @@ importer would silently discard 20% of the file and under-report spending.
 The index is assigned by a deterministic sort over row content, so the same
 statement always produces the same ids.
 
-Verified against the real file:
+Verified against two real exports that overlap by three days (June 17-20),
+including a duplicated PATH fare inside the overlap window:
 
 ```
-first import        339 new,   0 skipped
-second import         0 new, 339 skipped
-partial then full   199 new, then 140 new / 199 skipped  → 339 total
+same file twice       339 new, then   0 new / 339 skipped
+partial then full     199 new, then 140 new / 199 skipped  → 339 total
+
+later then earlier    339 new, then 115 new /  10 skipped  → 454 total
+earlier then later    125 new, then 329 new /  10 skipped  → 454 total
 ```
 
-Row count and cent-level sum both match the source CSV exactly, with zero
-duplicate ids.
+Import order does not affect the result: both sequences converge on the same
+454 rows and the same cent-level sum, with zero duplicate ids. Row counts and
+sums match a multiset union of the two source files exactly.
 
 ### Known limitation
 
