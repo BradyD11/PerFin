@@ -20,21 +20,42 @@ module Persistence.DB
   , allTransactions
   , accountBalance
   , netWorth
+    -- * Rules
+  , insertRule
+  , listRules
+  , deleteRule
+    -- * Categorization
+  , setCategory
+  , uncategorizedMerchants
+  , applyRules
+  , CategorizeSummary (..)
+    -- * Reporting queries
+  , TxRow (..)
+  , transactionsIn
+  , categoryTotals
+  , monthlyNetWorth
+  , distinctMonths
   ) where
 
 import           Control.Exception        (bracket)
 import           Control.Monad            (forM, forM_)
+import           Data.List                (sortOn)
+import qualified Data.Map.Strict          as M
 import           Data.Maybe               (mapMaybe)
+import           Data.Ord                 (Down (..))
 import qualified Data.Set                 as Set
 import           Data.Text                (Text)
 import qualified Data.Text                as T
-import           Data.Time                (Day)
+import           Data.Time                (Day, addGregorianMonthsClip,
+                                           defaultTimeLocale, parseTimeM)
 import           Database.SQLite.Simple
 import           Database.SQLite.Simple.FromField (FromField (..))
 import           Database.SQLite.Simple.ToField   (ToField (..))
 
+import           Categorize.Rules         (Rule (..), firstMatch)
 import           Domain.Types
 import           Domain.Validation        (mkAccountName, mkTransaction,
+                                           normalizeMerchant,
                                            renderValidationError)
 import           Import.CSV               (RawRow (..))
 import           Import.Dedup             (deriveIds)
@@ -97,6 +118,14 @@ migrate conn = do
     "CREATE INDEX IF NOT EXISTS idx_tx_account_day ON transactions(account, day)"
   execute_ conn
     "CREATE INDEX IF NOT EXISTS idx_tx_category ON transactions(category)"
+  -- needle is stored already normalized (see Categorize.Rules), so matching
+  -- never re-normalizes and the PRIMARY KEY dedups rules that differ only by
+  -- case or spacing.
+  execute_ conn
+    "CREATE TABLE IF NOT EXISTS rules \
+    \( needle   TEXT PRIMARY KEY \
+    \, category TEXT NOT NULL \
+    \)"
 
 upsertAccount :: Connection -> AccountName -> AccountType -> IO ()
 upsertAccount conn name ty =
@@ -223,3 +252,150 @@ netWorth conn = do
     b <- accountBalance conn (accName a)
     pure (netWorthDelta (accType a) b)
   pure (sum bals)
+
+-- ---------------------------------------------------------------------------
+-- Rules
+-- ---------------------------------------------------------------------------
+
+-- | Store a rule. Re-adding an existing needle updates its category rather
+-- than erroring, so @rules add@ is safely repeatable.
+insertRule :: Connection -> Rule -> IO ()
+insertRule conn r =
+  execute conn
+    "INSERT INTO rules (needle, category) VALUES (?, ?) \
+    \ON CONFLICT(needle) DO UPDATE SET category = excluded.category"
+    (ruleNeedle r, renderCategory (ruleCategory r))
+
+listRules :: Connection -> IO [Rule]
+listRules conn = do
+  rows <- query_ conn "SELECT needle, category FROM rules ORDER BY needle"
+  pure (mapMaybe toRule rows)
+  where
+    toRule (n, c) = case parseCategory c of
+      Right cat -> Just (Rule n cat)
+      Left _     -> Nothing
+
+deleteRule :: Connection -> Text -> IO Bool
+deleteRule conn rawNeedle = do
+  let needle = normalizeMerchant rawNeedle
+  execute conn "DELETE FROM rules WHERE needle = ?" (Only needle)
+  n <- changes conn
+  pure (n > 0)
+
+-- ---------------------------------------------------------------------------
+-- Categorization
+-- ---------------------------------------------------------------------------
+
+setCategory :: Connection -> TransactionId -> Category -> IO ()
+setCategory conn tid cat =
+  execute conn "UPDATE transactions SET category = ? WHERE id = ?"
+    (renderCategory cat, tid)
+
+-- | Distinct merchants that still have uncategorized rows, with a count.
+--
+-- Grouped by the /normalized/ merchant so the review prompt asks once per
+-- real-world merchant rather than once per description variant.
+uncategorizedMerchants :: Connection -> IO [(Text, Int)]
+uncategorizedMerchants conn = do
+  rows <- query_ conn
+    "SELECT merchant FROM transactions WHERE category = 'uncategorized'"
+  let normed = map (normalizeMerchant . fromOnly) rows
+      tally  = M.toList (M.fromListWith (+) [(m, 1 :: Int) | m <- normed])
+  pure (sortOn (\(m, n) -> (Down n, m)) tally)
+
+data CategorizeSummary = CategorizeSummary
+  { csUpdated :: Int
+  , csRemaining :: Int
+  } deriving stock (Eq, Show)
+
+-- | Apply every stored rule to every uncategorized transaction.
+--
+-- Only touches rows that are currently 'Uncategorized': a category the user
+-- set by hand is never silently overwritten by a later rule.
+applyRules :: Connection -> IO CategorizeSummary
+applyRules conn = do
+  rules <- listRules conn
+  rows <- query_ conn
+    "SELECT id, merchant FROM transactions WHERE category = 'uncategorized'"
+  let updates =
+        [ (tid, cat)
+        | (tid, merchant) <- rows
+        , Just r <- [firstMatch rules merchant]
+        , let cat = ruleCategory r
+        ]
+  withTransaction conn $
+    forM_ updates (uncurry (setCategory conn))
+  remaining <- query_ conn
+    "SELECT COUNT(*) FROM transactions WHERE category = 'uncategorized'"
+  let rem' = case remaining of { (Only n : _) -> n; [] -> 0 }
+  pure (CategorizeSummary (length updates) rem')
+
+-- ---------------------------------------------------------------------------
+-- Reporting queries
+-- ---------------------------------------------------------------------------
+
+data TxRow = TxRow
+  { trId       :: TransactionId
+  , trAccount  :: Text
+  , trDay      :: Day
+  , trAmount   :: Cents
+  , trMerchant :: Text
+  , trCategory :: Category
+  } deriving stock (Eq, Show)
+
+-- | Transactions in a half-open day range @[from, to)@.
+transactionsIn :: Connection -> Maybe Day -> Maybe Day -> IO [TxRow]
+transactionsIn conn mFrom mTo = do
+  rows <- query conn
+    "SELECT id, account, day, amount, merchant, category FROM transactions \
+    \WHERE day >= ? AND day < ? ORDER BY day, id"
+    (maybe "0000-01-01" show mFrom, maybe "9999-12-31" show mTo)
+  pure (mapMaybe toTxRow rows)
+
+toTxRow :: (TransactionId, Text, Text, Cents, Text, Text) -> Maybe TxRow
+toTxRow (tid, acct, dayTxt, amt, merch, catTxt) =
+  case (readDay dayTxt, parseCategory catTxt) of
+    (Just d, Right cat) -> Just (TxRow tid acct d amt merch cat)
+    _                   -> Nothing
+
+readDay :: Text -> Maybe Day
+readDay = parseTimeM True defaultTimeLocale "%Y-%m-%d" . T.unpack
+
+-- | Total per category over a day range. Categories with no activity are
+-- omitted.
+categoryTotals :: Connection -> Maybe Day -> Maybe Day -> IO [(Category, Cents)]
+categoryTotals conn mFrom mTo = do
+  txs <- transactionsIn conn mFrom mTo
+  let tally = M.fromListWith (+) [(trCategory t, trAmount t) | t <- txs]
+  pure (M.toList tally)
+
+-- | Every month that has at least one transaction, ascending.
+distinctMonths :: Connection -> IO [Day]
+distinctMonths conn = do
+  rows <- query_ conn "SELECT DISTINCT substr(day, 1, 7) FROM transactions ORDER BY 1"
+  pure (mapMaybe (monthStart . fromOnly) rows)
+  where
+    monthStart t = parseTimeM True defaultTimeLocale "%Y-%m" (T.unpack t)
+
+-- | Net worth at the end of each month that has activity.
+--
+-- Cumulative: each point includes every opening balance plus every
+-- transaction on or before the last day of that month.
+monthlyNetWorth :: Connection -> IO [(Day, Cents)]
+monthlyNetWorth conn = do
+  months <- distinctMonths conn
+  accts  <- listAccounts conn
+  forM months $ \m -> do
+    let nextMonth = addGregorianMonthsClip 1 m
+    -- Summed per account and run through netWorthDelta, mirroring 'netWorth'
+    -- exactly. Summing raw amounts across accounts would give the same number
+    -- today, but would silently diverge from 'netWorth' if the sign
+    -- convention ever changed. One definition of net worth, used twice.
+    perAccount <- forM accts $ \a -> do
+      rows <- query conn
+        "SELECT COALESCE(SUM(amount), 0) FROM transactions \
+        \WHERE account = ? AND day < ?"
+        (unAccountName (accName a), show nextMonth)
+      let summed = case rows of { (Only c : _) -> c; [] -> Cents 0 }
+      pure (netWorthDelta (accType a) (accOpening a + summed))
+    pure (m, sum perAccount)

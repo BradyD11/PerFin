@@ -16,7 +16,11 @@ library
                       Domain.Validation
                       Import.CSV
                       Import.Dedup
+                      Categorize.Rules
+                      Categorize.Prompt
                       Persistence.DB
+                      Report.NetWorth
+                      Report.Spending
     build-depends:    base >=4.17 && <5
                     , text
                     , time
@@ -45,7 +49,9 @@ test-suite spec
                       Domain.ValidationSpec
                       Import.CSVSpec
                       Import.DedupSpec
+                      Categorize.RulesSpec
                       Persistence.DBSpec
+                      Report.SpendingSpec
                       Gen
     build-depends:    base, ledger-cli, text, time, bytestring, containers
                     , QuickCheck, tasty, tasty-quickcheck, tasty-hunit

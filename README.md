@@ -9,9 +9,8 @@ follow from that.
 
 ## Status
 
-Milestones 1–3 are complete and tested end to end against a real 339-row
-credit card export. Categorization (milestone 4) and reporting (milestone 5)
-are not built yet; every transaction currently imports as `Uncategorized`.
+Milestones 1–5 are complete and tested end to end against a real 339-row
+credit card export: 111 tests, clean under `-Wall`.
 
 ## Quick start
 
@@ -23,8 +22,12 @@ cabal test
 ```bash
 cabal run ledger -- account init --name credit-card --type credit-card --balance 0.00
 cabal run ledger -- import --account credit-card data/creditcard-sample.csv
-cabal run ledger -- account list
+
+cabal run ledger -- rules add --contains "trader joe" --category groceries
+cabal run ledger -- review          # interactively categorize the rest
+
 cabal run ledger -- report net-worth
+cabal run ledger -- report spending --month 2026-09
 ```
 
 ## What the types prevent
@@ -172,11 +175,60 @@ imported 339 new, skipped 0 already present
 Imports run inside a single SQLite transaction, so a crash mid-import leaves
 the database untouched rather than half-written.
 
+## Categorization
+
+Rules are keyword matches against the same normalized merchant form the dedup
+key uses, so a rule written as `trader joe` matches `TRADER JOE'S #123 TEMPE
+AZ` without the user thinking about case, spacing, or store numbers.
+
+**Longer needles win.** A specific rule (`TACO BOYS`) beats a general one
+(`TACO`) regardless of which was added first, so rule order never has to be
+managed by hand. Ties break on the needle text, keeping the result
+deterministic.
+
+`mkRule` rejects an all-digit pattern. Normalization strips digits, so `12345`
+would normalize to the empty string — and every string contains the empty
+string, so such a rule would silently categorize the entire ledger.
+
+Unmatched merchants go to `ledger review`, which asks once per merchant
+(highest transaction count first) and persists each answer as a rule, so the
+same merchant is never asked about twice. The prompt accepts a name, a unique
+prefix, or the menu number; **ambiguous prefixes are rejected rather than
+guessed**, since silently picking `groceries` when the user typed `s` and meant
+`subscriptions` would write a wrong rule that mis-categorizes every future
+import.
+
+A category set by hand is never overwritten by a later rule — `applyRules`
+only touches rows that are still `Uncategorized`.
+
+## Reports
+
+```
+$ ledger report net-worth
+month          net worth        change
+2026-06           264.84          0.00
+2026-07          -187.14       -451.98
+2026-08           691.26       +878.40
+2026-09           375.82       -315.44
+
+change over window: 110.98
+```
+
+The first month's change is `0.00`, not its full value: there is no previous
+month to have moved from, and seeding with zero would report the entire
+opening position as a first-month gain. `seriesChange` is correspondingly
+`last - first` rather than a sum of deltas, and a property test pins the two
+definitions to each other.
+
+`report spending` breaks a month down by category and compares it to the
+previous month. The comparison uses the **union** of both months' categories,
+not the intersection — a category you spent on last month and not at all this
+month is exactly the change worth seeing.
+
 ## Not yet built
 
 - **Checking CSV format.** `checkingSpec` is a placeholder — the real export
   has not been seen. Verify the column order and especially `csSign` against
   a real file before trusting a checking import.
-- Categorization rules and the interactive review prompt (milestone 4).
-- Net worth over time and spending-by-category reports (milestone 5). The
-  current `report net-worth` prints only a single current figure.
+- Rules created by `review` use the full merchant string. A shorter, more
+  reusable needle has to be added by hand with `rules add`.
