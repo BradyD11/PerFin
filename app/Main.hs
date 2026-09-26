@@ -9,7 +9,8 @@ import           Data.Text            (Text)
 import qualified Data.Text            as T
 import qualified Data.Text.IO         as TIO
 import           Data.Time            (Day, addGregorianMonthsClip,
-                                       getCurrentTime, utctDay)
+                                       defaultTimeLocale, getCurrentTime,
+                                       parseTimeM, utctDay)
 import           Options.Applicative
 import           System.Exit          (exitFailure)
 
@@ -24,7 +25,8 @@ import           Report.Spending
 
 data Command
   = CmdImport FilePath FilePath Text
-  | CmdAccountInit FilePath Text Text Text
+  | CmdAccountInit FilePath Text Text Text (Maybe Text)
+  | CmdReconcile FilePath Text Text Text
   | CmdAccounts FilePath
   | CmdNetWorth FilePath (Maybe Text)
   | CmdSpending FilePath (Maybe Text) (Maybe Text)
@@ -59,8 +61,11 @@ commandParser = hsubparser
                               <> help "asset | liability | checking | credit-card")
                         <*> strOption (long "balance" <> metavar "AMOUNT"
                               <> value "0.00" <> showDefault
-                              <> help "Opening balance, e.g. 1234.56"))
-                      (progDesc "Create an account and set its opening balance"))
+                              <> help "A balance from a statement, e.g. 1234.56")
+                        <*> optional (strOption (long "as-of" <> metavar "YYYY-MM-DD"
+                              <> help "Day the balance was true at the end of \
+                                      \(default: before all transactions)")))
+                      (progDesc "Create an account and anchor its balance"))
             <> command "list"
                 (info (CmdAccounts <$> dbOpt) (progDesc "List accounts"))))
             (progDesc "Manage accounts"))
@@ -79,6 +84,14 @@ commandParser = hsubparser
                         <*> strOption (long "contains" <> metavar "TEXT"))
                       (progDesc "Remove a rule"))))
             (progDesc "Manage categorization rules"))
+ <> command "reconcile"
+      (info (CmdReconcile <$> dbOpt
+              <*> strOption (long "account" <> metavar "NAME")
+              <*> strOption (long "date" <> metavar "YYYY-MM-DD"
+                    <> help "Statement date the balance is for")
+              <*> strOption (long "balance" <> metavar "AMOUNT"
+                    <> help "Balance printed on the statement"))
+            (progDesc "Check the ledger against a statement balance"))
  <> command "review"
       (info (CmdReview <$> dbOpt)
             (progDesc "Interactively categorize unmatched merchants"))
@@ -110,15 +123,39 @@ main = do
 
 run :: Day -> Command -> IO ()
 run today = \case
-  CmdAccountInit db name ty bal -> do
+  CmdAccountInit db name ty bal mAsOf -> do
     accName' <- orDie (mkAccountName name) renderValidationError
     accType' <- orDie (parseAccountType ty) id
     cents    <- orDie (centsFromDecimal bal) id
+    asOf     <- traverse parseDayOrDie mAsOf
     withDb db $ \conn -> do
-      initAccountBalance conn accName' accType' cents
+      initAccountBalance conn accName' accType' cents asOf
       TIO.putStrLn ("initialized " <> unAccountName accName'
                     <> " (" <> renderAccountType accType'
-                    <> ") opening balance " <> renderCents cents)
+                    <> ") balance " <> renderCents cents
+                    <> maybe " before all transactions"
+                             (\d -> " at end of " <> tshow d) asOf)
+
+  CmdReconcile db name dayTxt bal -> do
+    accName' <- orDie (mkAccountName name) renderValidationError
+    day      <- parseDayOrDie dayTxt
+    expected <- orDie (centsFromDecimal bal) id
+    withDb db $ \conn -> do
+      acct <- lookupAccount conn accName'
+      case acct of
+        Nothing -> die ("unknown account: " <> name)
+        Just _  -> pure ()
+      r <- reconcileAccount conn accName' day expected
+      let diff = rcComputed r - rcExpected r
+      TIO.putStrLn (unAccountName accName' <> " at end of " <> tshow day)
+      TIO.putStrLn ("  statement  " <> T.justifyRight 12 ' ' (renderCents (rcExpected r)))
+      TIO.putStrLn ("  ledger     " <> T.justifyRight 12 ' ' (renderCents (rcComputed r)))
+      if diff == Cents 0
+        then TIO.putStrLn "  reconciled"
+        else do
+          TIO.putStrLn ("  difference " <> T.justifyRight 12 ' ' (signed diff))
+          TIO.putStrLn "  MISMATCH: a row is missing, doubled, or signed wrong"
+          exitFailure
 
   CmdAccounts db -> withDb db $ \conn -> do
     accts <- listAccounts conn
@@ -144,6 +181,21 @@ run today = \case
                       <> T.justifyRight 14 ' ' "change")
         mapM_ TIO.putStrLn (renderSeries shown)
         TIO.putStrLn ("\nchange over window: " <> renderCents (seriesChange shown))
+        -- A month before an account's first import cannot know that account's
+        -- balance; it is extrapolated as unchanged. Say so rather than print a
+        -- confident number built on a guess.
+        case shown of
+          [] -> pure ()
+          (firstPt : _) -> do
+            accts <- listAccounts conn
+            forM_ accts $ \a -> do
+              first <- firstTransactionDay conn (accName a)
+              case first of
+                Just d | monthOf d > nwpMonth firstPt ->
+                  TIO.putStrLn ("note: " <> unAccountName (accName a)
+                    <> " has no transactions before " <> renderMonth (monthOf d)
+                    <> "; earlier months assume its balance was unchanged")
+                _ -> pure ()
 
   CmdSpending db mMonth mCat -> withDb db $ \conn -> do
     month <- case mMonth of
@@ -246,6 +298,12 @@ run today = \case
 signed :: Cents -> Text
 signed c@(Cents n) | n > 0 = "+" <> renderCents c
                    | otherwise = renderCents c
+
+parseDayOrDie :: Text -> IO Day
+parseDayOrDie t =
+  case parseTimeM True defaultTimeLocale "%Y-%m-%d" (T.unpack (T.strip t)) of
+    Just d  -> pure d
+    Nothing -> die ("expected YYYY-MM-DD, got: " <> t)
 
 parseMonthOrDie :: Text -> IO Day
 parseMonthOrDie t = case parseMonth t of

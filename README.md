@@ -10,7 +10,8 @@ follow from that.
 ## Status
 
 Milestones 1–5 are complete and tested end to end against two real credit
-card exports (339 and 125 rows, overlapping): 114 tests, clean under `-Wall`.
+card exports (339 and 125 rows, overlapping) and a checking statement: 124
+tests, clean under `-Wall`.
 
 ## Quick start
 
@@ -20,8 +21,11 @@ cabal test
 ```
 
 ```bash
+cabal run ledger -- account init --name checking --type checking \
+                                 --balance 1000.00 --as-of 2026-08-25
 cabal run ledger -- account init --name credit-card --type credit-card --balance 0.00
 cabal run ledger -- import --account credit-card data/creditcard-sample.csv
+cabal run ledger -- reconcile --account checking --date 2026-09-24 --balance 1250.00
 
 cabal run ledger -- rules add --contains "trader joe" --category groceries
 cabal run ledger -- review          # interactively categorize the rest
@@ -179,6 +183,47 @@ imported 339 new, skipped 0 already present
 Imports run inside a single SQLite transaction, so a crash mid-import leaves
 the database untouched rather than half-written.
 
+## Balances and reconciliation
+
+A balance is only meaningful with a date. `account init --balance B --as-of D`
+records that the account held `B` at the end of day `D` — a number read
+straight off a statement. Every other balance is derived from that one point:
+
+```
+balance(d) = B + sum(tx on or before d) - sum(tx on or before D)
+```
+
+The same formula works in both directions. That matters the moment older
+history is imported: an undated opening balance already reflects July, so
+adding July's rows on top would count them twice. With a dated anchor, rows
+before `D` are subtracted back out, and a property test checks that importing
+them never moves any balance after the anchor.
+
+`ledger reconcile` compares the ledger to a balance the bank printed:
+
+```
+$ ledger reconcile --account checking --date 2026-09-24 --balance 1250.00
+checking at end of 2026-09-24
+  statement       1250.00
+  ledger          1250.00
+  reconciled
+```
+
+This is where "a corrupted row never silently becomes a wrong number" is
+enforced against the bank's own figures instead of only asserted. The same
+statement imported with its signs inverted — what a wrong `SignConvention`
+would do — is caught:
+
+```
+  statement       1250.00
+  ledger           750.00
+  difference      -500.00
+  MISMATCH: a row is missing, doubled, or signed wrong
+```
+
+and exits non-zero, so it can gate a script. A dropped or doubled row fails
+the same way.
+
 ## Categorization
 
 Rules are keyword matches against the same normalized merchant form the dedup
@@ -231,8 +276,14 @@ month is exactly the change worth seeing.
 
 ## Not yet built
 
-- **Checking CSV format.** `checkingSpec` is a placeholder — the real export
-  has not been seen. Verify the column order and especially `csSign` against
-  a real file before trusting a checking import.
+- **Checking CSV format.** Only a PDF statement has been seen. `checkingSpec`
+  assumes the same download format as the credit card export (same bank);
+  run `reconcile` after the first real checking import to confirm it.
+- **Untracked accounts.** Money moved to an account the ledger does not know
+  about (a brokerage, say) reads as a loss in net worth. Tracking it means
+  adding that account and importing its activity.
+- **Coverage gaps.** A month before an account's first imported transaction
+  assumes that account's balance was unchanged. `report net-worth` prints a
+  note when this applies rather than presenting the number as known.
 - Rules created by `review` use the full merchant string. A shorter, more
   reusable needle has to be added by hand with `rules add`.

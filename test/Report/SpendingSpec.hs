@@ -2,7 +2,6 @@
 
 module Report.SpendingSpec (tests) where
 
-import           Data.List             (sort)
 import           Data.Time             (fromGregorian)
 import           Test.Tasty
 import           Test.Tasty.HUnit

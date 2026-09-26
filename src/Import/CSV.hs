@@ -77,10 +77,14 @@ creditCardSpec = ColumnSpec
   , csExpectedCols   = 5
   }
 
--- | Provisional. The checking export has not been seen yet; this assumes the
--- same shape as the credit card file minus the trailing columns. Verify
--- against a real file before trusting a checking import — in particular
--- 'csSign', which cannot be inferred from the header row.
+-- | Provisional. No checking CSV has been seen yet, only a PDF statement.
+-- Both accounts are at the same bank, and the credit card export carries a
+-- @CHECK #@ column that only makes sense for checking, so the download format
+-- is likely shared and this assumes it. 'csSign' in particular cannot be
+-- inferred from a header row.
+--
+-- The safeguard is @ledger reconcile@: an import under the wrong layout or
+-- sign convention cannot match the balance printed on the statement.
 checkingSpec :: ColumnSpec
 checkingSpec = ColumnSpec
   { csName           = "checking"

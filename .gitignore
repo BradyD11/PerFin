@@ -9,3 +9,4 @@ CLAUDE.md
 # Real financial data — never commit
 data/
 *.csv
+*.pdf

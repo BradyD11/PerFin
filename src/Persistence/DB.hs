@@ -19,6 +19,10 @@ module Persistence.DB
   , existingIds
   , allTransactions
   , accountBalance
+  , accountBalanceAt
+  , Reconciliation (..)
+  , reconcileAccount
+  , firstTransactionDay
   , netWorth
     -- * Rules
   , insertRule
@@ -46,7 +50,7 @@ import           Data.Ord                 (Down (..))
 import qualified Data.Set                 as Set
 import           Data.Text                (Text)
 import qualified Data.Text                as T
-import           Data.Time                (Day, addGregorianMonthsClip,
+import           Data.Time                (Day, addDays, addGregorianMonthsClip,
                                            defaultTimeLocale, parseTimeM)
 import           Database.SQLite.Simple
 import           Database.SQLite.Simple.FromField (FromField (..))
@@ -76,10 +80,21 @@ instance ToField TransactionId where
 instance FromField TransactionId where
   fromField f = TransactionId <$> fromField f
 
+-- | An account and its balance anchor.
+--
+-- @accOpening@ is a balance the user read off a statement, and @accAsOf@ is
+-- the day it was true at the /end/ of. Every other balance is derived from
+-- this one point by adding or subtracting imported transactions, in either
+-- direction — so importing older history later cannot double count, because
+-- transactions before the anchor are subtracted back out.
+--
+-- @accAsOf = Nothing@ means the balance held before every imported
+-- transaction, which is the behavior accounts had before anchors were dated.
 data Account = Account
   { accName    :: AccountName
   , accType    :: AccountType
   , accOpening :: Cents
+  , accAsOf    :: Maybe Day
   } deriving stock (Eq, Show)
 
 withDb :: FilePath -> (Connection -> IO a) -> IO a
@@ -121,11 +136,26 @@ migrate conn = do
   -- needle is stored already normalized (see Categorize.Rules), so matching
   -- never re-normalizes and the PRIMARY KEY dedups rules that differ only by
   -- case or spacing.
+  addColumnIfMissing conn "accounts" "balance_as_of" "TEXT"
   execute_ conn
     "CREATE TABLE IF NOT EXISTS rules \
     \( needle   TEXT PRIMARY KEY \
     \, category TEXT NOT NULL \
     \)"
+
+-- | @CREATE TABLE IF NOT EXISTS@ does not add columns to an existing table,
+-- so schema growth needs an explicit, idempotent step. A nullable column is
+-- safe to add: existing rows read as 'Nothing', which preserves their old
+-- meaning exactly.
+addColumnIfMissing :: Connection -> Text -> Text -> Text -> IO ()
+addColumnIfMissing conn table column ty = do
+  cols <- query_ conn (Query ("PRAGMA table_info(" <> table <> ")"))
+            :: IO [(Int, Text, Text, Int, Maybe Text, Int)]
+  let present = any (\(_, n, _, _, _, _) -> n == column) cols
+  if present
+    then pure ()
+    else execute_ conn (Query ("ALTER TABLE " <> table <> " ADD COLUMN "
+                               <> column <> " " <> ty))
 
 upsertAccount :: Connection -> AccountName -> AccountType -> IO ()
 upsertAccount conn name ty =
@@ -134,32 +164,35 @@ upsertAccount conn name ty =
     \ON CONFLICT(name) DO UPDATE SET type = excluded.type"
     (unAccountName name, renderAccountType ty)
 
--- | Set the opening balance. Separate from 'upsertAccount' so that re-running
+-- | Set the balance anchor. Separate from 'upsertAccount' so that re-running
 -- an import never silently resets a balance the user set deliberately.
-initAccountBalance :: Connection -> AccountName -> AccountType -> Cents -> IO ()
-initAccountBalance conn name ty bal = do
+initAccountBalance
+  :: Connection -> AccountName -> AccountType -> Cents -> Maybe Day -> IO ()
+initAccountBalance conn name ty bal asOf = do
   upsertAccount conn name ty
-  execute conn "UPDATE accounts SET opening_balance = ? WHERE name = ?"
-    (bal, unAccountName name)
+  execute conn
+    "UPDATE accounts SET opening_balance = ?, balance_as_of = ? WHERE name = ?"
+    (bal, fmap show asOf, unAccountName name)
 
 lookupAccount :: Connection -> AccountName -> IO (Maybe Account)
 lookupAccount conn name = do
   rows <- query conn
-    "SELECT name, type, opening_balance FROM accounts WHERE name = ?"
+    "SELECT name, type, opening_balance, balance_as_of FROM accounts WHERE name = ?"
     (Only (unAccountName name))
   pure (firstOf (mapMaybe toAccount rows))
   where firstOf = \case { (x:_) -> Just x; [] -> Nothing }
 
 listAccounts :: Connection -> IO [Account]
 listAccounts conn = do
-  rows <- query_ conn "SELECT name, type, opening_balance FROM accounts ORDER BY name"
+  rows <- query_ conn
+    "SELECT name, type, opening_balance, balance_as_of FROM accounts ORDER BY name"
   pure (mapMaybe toAccount rows)
 
-toAccount :: (Text, Text, Cents) -> Maybe Account
-toAccount (n, t, bal) =
-  case (mkAccountName n, parseAccountType t) of
-    (Right nm, Right ty) -> Just (Account nm ty bal)
-    _                    -> Nothing
+toAccount :: (Text, Text, Cents, Maybe Text) -> Maybe Account
+toAccount (n, t, bal, asOf) =
+  case (mkAccountName n, parseAccountType t, traverse readDay asOf) of
+    (Right nm, Right ty, Just d) -> Just (Account nm ty bal d)
+    _                            -> Nothing
 
 data ImportSummary = ImportSummary
   { isInserted :: Int
@@ -229,15 +262,59 @@ allTransactions conn =
   query_ conn
     "SELECT account, day, amount, merchant, category FROM transactions ORDER BY day, id"
 
--- | Opening balance plus the sum of every transaction in the account.
+-- | Current balance: every imported transaction included.
 accountBalance :: Connection -> AccountName -> IO Cents
-accountBalance conn name = do
+accountBalance conn name = accountBalanceAt conn name Nothing
+
+-- | Balance at the end of a day ('Nothing' for no cutoff).
+--
+-- > balance(d) = anchor + sum(tx on or before d) - sum(tx on or before asOf)
+--
+-- For @d@ after the anchor this adds the transactions since; for @d@ before
+-- it, the second sum exceeds the first and the difference is subtracted.
+-- One formula, both directions, no special case for "before the anchor".
+accountBalanceAt :: Connection -> AccountName -> Maybe Day -> IO Cents
+accountBalanceAt conn name cutoff = do
   acct <- lookupAccount conn name
   let opening = maybe (Cents 0) accOpening acct
-  rows <- query conn "SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE account = ?"
+  upTo  <- sumThrough conn name cutoff
+  atAnchor <- case acct >>= accAsOf of
+    Nothing -> pure (Cents 0)
+    Just d  -> sumThrough conn name (Just d)
+  pure (opening + upTo - atAnchor)
+
+-- | Sum of an account's transactions on or before a day.
+sumThrough :: Connection -> AccountName -> Maybe Day -> IO Cents
+sumThrough conn name cutoff = do
+  rows <- query conn
+    "SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE account = ? AND day <= ?"
+    (unAccountName name, maybe "9999-12-31" show cutoff)
+  pure (case rows of { (Only c : _) -> c; [] -> Cents 0 })
+
+-- | The ledger's balance against one the bank printed.
+data Reconciliation = Reconciliation
+  { rcDay      :: Day
+  , rcExpected :: Cents   -- ^ from the statement
+  , rcComputed :: Cents   -- ^ from the ledger
+  } deriving stock (Eq, Show)
+
+-- | Compare the ledger to a statement balance.
+--
+-- This is the check that makes an import error loud. An unverified column
+-- layout, an inverted sign convention, a dropped or doubled row: each moves
+-- the computed balance away from the printed one, so a mismatch here is how
+-- "a corrupted row never silently becomes a wrong number" is actually
+-- enforced against the bank's own figures rather than just asserted.
+reconcileAccount :: Connection -> AccountName -> Day -> Cents -> IO Reconciliation
+reconcileAccount conn name day expected =
+  Reconciliation day expected <$> accountBalanceAt conn name (Just day)
+
+-- | Earliest imported transaction in an account, if any.
+firstTransactionDay :: Connection -> AccountName -> IO (Maybe Day)
+firstTransactionDay conn name = do
+  rows <- query conn "SELECT MIN(day) FROM transactions WHERE account = ?"
             (Only (unAccountName name))
-  let summed = case rows of { (Only c : _) -> c; [] -> Cents 0 }
-  pure (opening + summed)
+  pure (case rows of { (Only (Just t) : _) -> readDay t; _ -> Nothing })
 
 -- | Net worth across every account.
 --
@@ -386,16 +463,10 @@ monthlyNetWorth conn = do
   months <- distinctMonths conn
   accts  <- listAccounts conn
   forM months $ \m -> do
-    let nextMonth = addGregorianMonthsClip 1 m
-    -- Summed per account and run through netWorthDelta, mirroring 'netWorth'
-    -- exactly. Summing raw amounts across accounts would give the same number
-    -- today, but would silently diverge from 'netWorth' if the sign
-    -- convention ever changed. One definition of net worth, used twice.
+    let monthEnd = addDays (-1) (addGregorianMonthsClip 1 m)
+    -- Built from 'accountBalanceAt', the same definition 'netWorth' uses, so
+    -- the last point of the series and the current net worth cannot disagree.
     perAccount <- forM accts $ \a -> do
-      rows <- query conn
-        "SELECT COALESCE(SUM(amount), 0) FROM transactions \
-        \WHERE account = ? AND day < ?"
-        (unAccountName (accName a), show nextMonth)
-      let summed = case rows of { (Only c : _) -> c; [] -> Cents 0 }
-      pure (netWorthDelta (accType a) (accOpening a + summed))
+      b <- accountBalanceAt conn (accName a) (Just monthEnd)
+      pure (netWorthDelta (accType a) b)
     pure (m, sum perAccount)
