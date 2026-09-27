@@ -50,7 +50,15 @@ tests = testGroup "Domain.Types"
     ]
 
   , testGroup "Cents rendering"
-    [ testCase "sub-dollar negative keeps its sign" $
+    [ testCase "magnitude groups thousands and drops the sign" $ do
+        renderMagnitude (Cents (-198928)) @?= "1,989.28"
+        renderMagnitude (Cents 5)         @?= "0.05"
+        renderMagnitude (Cents 100000000) @?= "1,000,000.00"
+        renderMagnitude (Cents 99999)     @?= "999.99"
+    , QC.testProperty "magnitude parses back to the absolute value" $
+        \(AnyCents c@(Cents n)) ->
+          centsFromDecimal (renderMagnitude c) === Right (Cents (abs n))
+    , testCase "sub-dollar negative keeps its sign" $
         renderCents (Cents (-5)) @?= "-0.05"
     , testCase "sub-dollar positive" $ renderCents (Cents 5) @?= "0.05"
     , testCase "zero" $ renderCents (Cents 0) @?= "0.00"

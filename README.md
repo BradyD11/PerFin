@@ -10,7 +10,7 @@ follow from that.
 ## Status
 
 Milestones 1–5 are complete and tested end to end against two real credit
-card exports (339 and 125 rows, overlapping) and a checking statement: 124
+card exports (339 and 125 rows, overlapping) and a checking statement: 138
 tests, clean under `-Wall`.
 
 ## Quick start
@@ -33,6 +33,32 @@ cabal run ledger -- review          # interactively categorize the rest
 cabal run ledger -- report net-worth
 cabal run ledger -- report spending --month 2026-09
 ```
+
+## Web review screen
+
+`ledger review` has a browser counterpart: a Servant JSON API (`ledger serve`)
+in front of a React + TypeScript screen in `web/`. You categorize merchants
+directly on a statement-style view of your lines. The rule is editable, and
+before anything is saved you see every line it would file, across all
+merchants. Keys 1–7 file, and Z undoes the last decision, reverting exactly the
+rows it changed.
+
+```bash
+cd web && npm install && npm run build && cd ..
+cabal run ledger -- serve --db ledger.db     # your own ledger, http://localhost:8787
+cabal run ledger -- serve --demo             # in-memory synthetic ledger
+```
+
+The demo seeds invented merchants and amounts, labeled SPECIMEN on screen, so
+real statements never leave the machine. The browser does no matching or money
+arithmetic of its own. Previews and decisions go through the same Haskell
+`mkRule`, `preview` and `decide` functions, and a property test checks that
+the rows a preview promises are exactly the rows saving changes.
+
+For frontend development, run `npm run dev` in `web/` alongside `ledger serve`.
+Vite proxies `/api` to port 8787.
+
+Design intent lives in `PRODUCT.md` and `DESIGN.md`.
 
 ## What the types prevent
 

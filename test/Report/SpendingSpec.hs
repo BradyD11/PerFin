@@ -27,8 +27,8 @@ tests = testGroup "Report"
           lookup' Groceries out @?= Just (Cents (-2000), 1)
 
     , testCase "biggest outflow sorts first" $
-        let rows = [tx (-1000) Dining, tx (-5000) Rent, tx 20000 Income]
-        in map clCategory (spendingByCategory rows) @?= [Rent, Dining, Income]
+        let rows = [tx (-1000) Dining, tx (-5000) Monthly, tx 20000 Income]
+        in map clCategory (spendingByCategory rows) @?= [Monthly, Dining, Income]
 
     , testCase "an empty ledger yields no lines" $
         spendingByCategory [] @?= []
@@ -60,10 +60,10 @@ tests = testGroup "Report"
   , testGroup "monthOverMonth"
     [ testCase "reports a category that vanished this month" $
         -- The case an intersection would hide.
-        let prev = [tx (-5000) Rent]
+        let prev = [tx (-5000) Monthly]
             cur  = [tx (-1000) Dining]
             out  = monthOverMonth cur prev
-        in lookupDelta Rent out @?= Just (Cents 5000)
+        in lookupDelta Monthly out @?= Just (Cents 5000)
 
     , testCase "reports a brand-new category" $
         let out = monthOverMonth [tx (-1000) Dining] []

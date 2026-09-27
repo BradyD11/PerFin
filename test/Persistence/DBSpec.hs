@@ -15,6 +15,8 @@ import           Test.Tasty.QuickCheck as QC
 import           Domain.Types
 import           Domain.Validation (mkAccountName)
 import           Import.CSV        (RawRow (..))
+import           Categorize.Review (ReviewRow (..))
+import           Categorize.Rules  (Rule (..), mkRule)
 import           Persistence.DB
 
 today :: Day
@@ -273,6 +275,73 @@ tests = testGroup "Persistence.DB"
           fmap accOpening a @?= Just (Cents 12345)
           fmap accAsOf a    @?= Just Nothing
 
+  , testGroup "decisions and undo"
+    [ testCase "undo reverts exactly the rows a decision changed" $
+        withTestDb $ \conn -> do
+          initAccountBalance conn card Liability (Cents 0) Nothing
+          importOk conn card cardRows
+          dec <- decide conn (mustRule "mta" TravelTransit)
+          dcRows dec @?= 2
+          Just (_, n) <- undoLast conn
+          n @?= 2
+          open' <- uncategorizedCount conn
+          open' @?= 4
+          rules <- listRules conn
+          rules @?= []
+
+    , testCase "undo restores a rule's prior category" $
+        withTestDb $ \conn -> do
+          initAccountBalance conn card Liability (Cents 0) Nothing
+          importOk conn card cardRows
+          _ <- decide conn (mustRule "taco boys" Dining)
+          _ <- undoLast conn
+          insertRule conn (mustRule "taco boys" Groceries)
+          _ <- decide conn (mustRule "taco boys" Dining)
+          _ <- undoLast conn
+          rules <- listRules conn
+          map ruleCategory rules @?= [Groceries]
+
+    , testCase "repeated undo walks back through the log" $
+        withTestDb $ \conn -> do
+          initAccountBalance conn card Liability (Cents 0) Nothing
+          importOk conn card cardRows
+          _ <- decide conn (mustRule "mta" TravelTransit)
+          _ <- decide conn (mustRule "taco boys" Dining)
+          Just (d1, _) <- undoLast conn
+          Just (d2, _) <- undoLast conn
+          none <- undoLast conn
+          ruleNeedle (dcRule d1) @?= "TACO BOYS"
+          ruleNeedle (dcRule d2) @?= "MTA"
+          fmap fst none @?= Nothing
+
+    , testCase "undo leaves alone a row recategorized since" $
+        withTestDb $ \conn -> do
+          initAccountBalance conn card Liability (Cents 0) Nothing
+          importOk conn card cardRows
+          _ <- decide conn (mustRule "taco boys" Dining)
+          rows <- reviewRows conn
+          case [ rvId r | r <- rows, rvCategory r == Dining ] of
+            [tid] -> setCategory conn tid Groceries
+            other -> assertFailure ("expected one dining row, got " <> show (length other))
+          Just (_, n) <- undoLast conn
+          n @?= 0
+
+    , testCase "legacy rent and subscriptions rows migrate to monthly" $
+        withSystemTempDirectory "ledger-test" $ \dir -> do
+          let path = dir </> "legacy.db"
+          withDb path $ \conn -> do
+            initAccountBalance conn card Liability (Cents 0) Nothing
+            importOk conn card cardRows
+            execute_ conn "UPDATE transactions SET category = 'rent' WHERE merchant LIKE 'SQ%'"
+            execute_ conn "INSERT INTO rules VALUES ('NETFLIX', 'subscriptions')"
+          withDb path $ \conn -> do
+            rows <- reviewRows conn
+            length rows @?= 4
+            length [ r | r <- rows, rvCategory r == Monthly ] @?= 1
+            rules <- listRules conn
+            map ruleCategory rules @?= [Monthly]
+    ]
+
   , testCase "a future-dated row is rejected at the domain boundary" $
       withTestDb $ \conn -> do
         initAccountBalance conn card Liability (Cents 0) Nothing
@@ -348,3 +417,6 @@ importOk conn acct rows = do
   case r of
     Left errs -> assertFailure ("import rejected: " <> show errs)
     Right _   -> pure ()
+
+mustRule :: Text -> Category -> Rule
+mustRule n c = either (error "bad rule") id (mkRule n c)

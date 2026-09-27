@@ -1,7 +1,26 @@
+# Haskell build output
 dist-newstyle/
+.ghc.environment.*
+
+# Local ledger databases
 *.db
 *.db-journal
-.ghc.environment.*
+
+# Web frontend: dependencies and build output (rebuilt by `npm run build`)
+web/node_modules/
+web/dist/
+*.tsbuildinfo
+
+# Impeccable design-tool working files: decision-page state and review
+# captures. PRODUCT.md, DESIGN.md and .impeccable/design.json are kept.
+.impeccable/questions/
+.impeccable/decision/
+.impeccable/review/
+.impeccable/config.local.json
+
+# OS and editor noise
+.DS_Store
+*.log
 
 # Project instructions (local only)
 CLAUDE.md

@@ -22,6 +22,8 @@ import           Import.CSV
 import           Persistence.DB
 import           Report.NetWorth
 import           Report.Spending
+import           Server.API          (ServerConfig (..), runServer)
+import           Server.Demo         (seedDemo)
 
 data Command
   = CmdImport FilePath FilePath Text
@@ -34,6 +36,8 @@ data Command
   | CmdRulesList FilePath
   | CmdRulesRemove FilePath Text
   | CmdReview FilePath
+  | CmdUndo FilePath
+  | CmdServe FilePath Bool Int FilePath
   | CmdRecategorize FilePath
 
 dbOpt :: Parser FilePath
@@ -95,6 +99,17 @@ commandParser = hsubparser
  <> command "review"
       (info (CmdReview <$> dbOpt)
             (progDesc "Interactively categorize unmatched merchants"))
+ <> command "serve"
+      (info (CmdServe <$> dbOpt
+              <*> switch (long "demo"
+                    <> help "Serve an in-memory synthetic ledger instead of --db")
+              <*> option auto (long "port" <> metavar "PORT" <> value 8787 <> showDefault)
+              <*> strOption (long "static" <> metavar "DIR" <> value "web/dist"
+                    <> showDefault <> help "Built web frontend to serve"))
+            (progDesc "Run the web review screen"))
+ <> command "undo"
+      (info (CmdUndo <$> dbOpt)
+            (progDesc "Revert the most recent categorization decision"))
  <> command "recategorize"
       (info (CmdRecategorize <$> dbOpt)
             (progDesc "Re-apply all rules to uncategorized transactions"))
@@ -257,6 +272,21 @@ run today = \case
     TIO.putStrLn (if removed then "rule removed" else "no such rule")
 
   CmdReview db -> withDb db reviewLoop
+
+  CmdServe db demo port static -> do
+    let cfg = ServerConfig { scPort = port, scStaticDir = static, scDemo = demo }
+    if demo
+      then withDb ":memory:" $ \conn -> seedDemo conn today >> runServer cfg conn
+      else withDb db (runServer cfg)
+
+  CmdUndo db -> withDb db $ \conn -> do
+    r <- undoLast conn
+    case r of
+      Nothing -> TIO.putStrLn "nothing to undo"
+      Just (d, n) ->
+        TIO.putStrLn ("undid \"" <> ruleNeedle (dcRule d) <> "\" -> "
+                      <> renderCategory (ruleCategory (dcRule d))
+                      <> " (" <> tshow n <> " transaction(s) back to uncategorized)")
 
   CmdRecategorize db -> withDb db $ \conn -> do
     s <- applyRules conn

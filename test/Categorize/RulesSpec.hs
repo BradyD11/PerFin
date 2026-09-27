@@ -50,7 +50,7 @@ tests = testGroup "Categorize"
           categorize [specific, general] "SQ *TACO BOYS TEMPE" @?= Groceries
 
     , testCase "unmatched merchants fall back to Uncategorized" $
-        categorize [rule "rent" Rent] "MTA*NYCT PAYGO" @?= Uncategorized
+        categorize [rule "rent" Monthly] "MTA*NYCT PAYGO" @?= Uncategorized
 
     , testCase "no rules means everything is uncategorized" $
         categorize [] "ANYTHING" @?= Uncategorized

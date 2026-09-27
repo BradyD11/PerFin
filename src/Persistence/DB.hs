@@ -28,6 +28,14 @@ module Persistence.DB
   , insertRule
   , listRules
   , deleteRule
+    -- * Review
+  , reviewRows
+  , previewPattern
+  , Decision (..)
+  , decide
+  , undoLast
+  , lastDecision
+  , uncategorizedCount
     -- * Categorization
   , setCategory
   , uncategorizedMerchants
@@ -56,7 +64,8 @@ import           Database.SQLite.Simple
 import           Database.SQLite.Simple.FromField (FromField (..))
 import           Database.SQLite.Simple.ToField   (ToField (..))
 
-import           Categorize.Rules         (Rule (..), firstMatch)
+import           Categorize.Review        (Preview, ReviewRow (..), preview)
+import           Categorize.Rules         (Rule (..), RuleError, firstMatch, mkRule)
 import           Domain.Types
 import           Domain.Validation        (mkAccountName, mkTransaction,
                                            normalizeMerchant,
@@ -137,11 +146,37 @@ migrate conn = do
   -- never re-normalizes and the PRIMARY KEY dedups rules that differ only by
   -- case or spacing.
   addColumnIfMissing conn "accounts" "balance_as_of" "TEXT"
+  -- rent and subscriptions were merged into monthly. Rows still carrying the
+  -- old names would fail to parse and silently drop out of every report, so
+  -- they are rewritten here. Idempotent: a second run matches nothing.
+  execute_ conn
+    "UPDATE transactions SET category = 'monthly' \
+    \WHERE category IN ('rent', 'subscriptions')"
+  -- The decision log is what makes undo exact: it records the rule's prior
+  -- state and precisely which rows each decision changed, so undo reverts
+  -- those rows and nothing else.
+  execute_ conn
+    "CREATE TABLE IF NOT EXISTS decisions \
+    \( id             INTEGER PRIMARY KEY AUTOINCREMENT \
+    \, needle         TEXT NOT NULL \
+    \, category       TEXT NOT NULL \
+    \, prior_category TEXT \
+    \, undone         INTEGER NOT NULL DEFAULT 0 \
+    \)"
+  execute_ conn
+    "CREATE TABLE IF NOT EXISTS decision_rows \
+    \( decision_id INTEGER NOT NULL REFERENCES decisions(id) \
+    \, tx_id       TEXT NOT NULL REFERENCES transactions(id) \
+    \, PRIMARY KEY (decision_id, tx_id) \
+    \)"
   execute_ conn
     "CREATE TABLE IF NOT EXISTS rules \
     \( needle   TEXT PRIMARY KEY \
     \, category TEXT NOT NULL \
     \)"
+  execute_ conn
+    "UPDATE rules SET category = 'monthly' \
+    \WHERE category IN ('rent', 'subscriptions')"
 
 -- | @CREATE TABLE IF NOT EXISTS@ does not add columns to an existing table,
 -- so schema growth needs an explicit, idempotent step. A nullable column is
@@ -470,3 +505,116 @@ monthlyNetWorth conn = do
       b <- accountBalanceAt conn (accName a) (Just monthEnd)
       pure (netWorthDelta (accType a) b)
     pure (m, sum perAccount)
+
+-- ---------------------------------------------------------------------------
+-- Review
+-- ---------------------------------------------------------------------------
+
+-- | Every transaction, shaped for review and preview.
+reviewRows :: Connection -> IO [ReviewRow]
+reviewRows conn = do
+  rows <- query_ conn
+    "SELECT id, account, day, amount, merchant, category FROM transactions"
+  pure (mapMaybe toReviewRow rows)
+  where
+    toReviewRow (tid, acct, dayTxt, amt, merch, catTxt) =
+      case (readDay dayTxt, parseCategory catTxt) of
+        (Just d, Right cat) -> Just (ReviewRow tid acct d amt merch cat)
+        _                   -> Nothing
+
+uncategorizedCount :: Connection -> IO Int
+uncategorizedCount conn = do
+  rows <- query_ conn
+    "SELECT COUNT(*) FROM transactions WHERE category = 'uncategorized'"
+  pure (case rows of { (Only n : _) -> n; [] -> 0 })
+
+-- | Preview a raw pattern. Validation is 'mkRule', the same smart constructor
+-- saving uses, so the screen cannot accept a pattern the database would
+-- reject.
+previewPattern :: Connection -> Text -> Category -> IO (Either RuleError Preview)
+previewPattern conn raw cat =
+  case mkRule raw cat of
+    Left e  -> pure (Left e)
+    Right r -> do
+      rules <- listRules conn
+      Right . preview rules r <$> reviewRows conn
+
+data Decision = Decision
+  { dcId       :: Int
+  , dcRule     :: Rule
+  , dcRows     :: Int     -- ^ rows this decision categorized
+  } deriving stock (Eq, Show)
+
+-- | Save a rule and apply it, recording exactly what changed.
+--
+-- One SQLite transaction: the rule, the row updates, and the log entry land
+-- together or not at all, so the log can never disagree with the data it
+-- describes.
+decide :: Connection -> Rule -> IO Decision
+decide conn rule = withTransaction conn $ do
+  prior <- query conn "SELECT category FROM rules WHERE needle = ?"
+             (Only (ruleNeedle rule))
+  let priorCat = case prior of { (Only c : _) -> Just (c :: Text); [] -> Nothing }
+  insertRule conn rule
+  rules <- listRules conn
+  pending <- query_ conn
+    "SELECT id, merchant FROM transactions WHERE category = 'uncategorized'"
+  let updates =
+        [ (tid, ruleCategory r)
+        | (tid, merchant) <- pending
+        , Just r <- [firstMatch rules merchant]
+        ]
+  forM_ updates (uncurry (setCategory conn))
+  execute conn
+    "INSERT INTO decisions (needle, category, prior_category) VALUES (?, ?, ?)"
+    (ruleNeedle rule, renderCategory (ruleCategory rule), priorCat)
+  did <- fromIntegral <$> lastInsertRowId conn
+  forM_ updates $ \(tid, _) ->
+    execute conn "INSERT INTO decision_rows (decision_id, tx_id) VALUES (?, ?)"
+      (did :: Int, tid)
+  pure (Decision did rule (length updates))
+
+-- | The most recent decision that has not been undone.
+lastDecision :: Connection -> IO (Maybe Decision)
+lastDecision conn = do
+  rows <- query_ conn
+    "SELECT d.id, d.needle, d.category, \
+    \  (SELECT COUNT(*) FROM decision_rows r WHERE r.decision_id = d.id) \
+    \FROM decisions d WHERE d.undone = 0 ORDER BY d.id DESC LIMIT 1"
+  pure $ case rows of
+    ((did, needle, catTxt, n) : _) | Right cat <- parseCategory catTxt ->
+      Just (Decision did (Rule needle cat) n)
+    _ -> Nothing
+
+-- | Revert the most recent decision: its rows go back to uncategorized and
+-- the rule returns to what it was before (removed, or its prior category).
+--
+-- Guards make it exact rather than approximate. Only rows still carrying the
+-- category the decision set are reverted, and the rule is only restored if it
+-- still says what the decision wrote; anything changed since by another path
+-- is left as it is. Repeated calls walk back through the log.
+undoLast :: Connection -> IO (Maybe (Decision, Int))
+undoLast conn = withTransaction conn $ do
+  md <- lastDecision conn
+  case md of
+    Nothing -> pure Nothing
+    Just d -> do
+      let cat = renderCategory (ruleCategory (dcRule d))
+          needle = ruleNeedle (dcRule d)
+      execute conn
+        "UPDATE transactions SET category = 'uncategorized' \
+        \WHERE category = ? AND id IN \
+        \  (SELECT tx_id FROM decision_rows WHERE decision_id = ?)"
+        (cat, dcId d)
+      reverted <- changes conn
+      prior <- query conn "SELECT prior_category FROM decisions WHERE id = ?"
+                 (Only (dcId d))
+      case prior of
+        (Only (Just p) : _) ->
+          execute conn "UPDATE rules SET category = ? WHERE needle = ? AND category = ?"
+            (p :: Text, needle, cat)
+        _ ->
+          execute conn "DELETE FROM rules WHERE needle = ? AND category = ?"
+            (needle, cat)
+      execute conn "UPDATE decisions SET undone = 1 WHERE id = ?" (Only (dcId d))
+      pure (Just (d, reverted))

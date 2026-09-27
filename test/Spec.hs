@@ -7,6 +7,7 @@ import qualified Domain.ValidationSpec
 import qualified Import.CSVSpec
 import qualified Import.DedupSpec
 import qualified Categorize.RulesSpec
+import qualified Categorize.ReviewSpec
 import qualified Report.SpendingSpec
 import qualified Persistence.DBSpec
 
@@ -17,6 +18,7 @@ main = defaultMain $ testGroup "ledger-cli"
   , Import.CSVSpec.tests
   , Import.DedupSpec.tests
   , Categorize.RulesSpec.tests
+  , Categorize.ReviewSpec.tests
   , Persistence.DBSpec.tests
   , Report.SpendingSpec.tests
   ]

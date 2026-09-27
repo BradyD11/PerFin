@@ -1,0 +1,490 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-27T06:55:43+00:00",
+  "title": "Design System: ledger",
+  "extensions": {
+    "colorMeta": {
+      "paper": {
+        "role": "neutral",
+        "displayName": "Statement White",
+        "canonical": "#ffffff",
+        "oklch": "oklch(100.0% 0.000 89.9)",
+        "tonalRamp": [
+          "oklch(15% 0.000 89.9)",
+          "oklch(26% 0.000 89.9)",
+          "oklch(37% 0.000 89.9)",
+          "oklch(48% 0.000 89.9)",
+          "oklch(60% 0.000 89.9)",
+          "oklch(72% 0.000 89.9)",
+          "oklch(84% 0.000 89.9)",
+          "oklch(95% 0.000 89.9)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Navy-Black Ink",
+        "canonical": "#16202b",
+        "oklch": "oklch(23.9% 0.026 251.3)",
+        "tonalRamp": [
+          "oklch(15% 0.026 251.3)",
+          "oklch(26% 0.026 251.3)",
+          "oklch(37% 0.026 251.3)",
+          "oklch(48% 0.026 251.3)",
+          "oklch(60% 0.026 251.3)",
+          "oklch(72% 0.026 251.3)",
+          "oklch(84% 0.026 251.3)",
+          "oklch(95% 0.026 251.3)"
+        ]
+      },
+      "ink-2": {
+        "role": "neutral",
+        "displayName": "Secondary Ink",
+        "canonical": "#44515d",
+        "oklch": "oklch(42.8% 0.026 246.3)",
+        "tonalRamp": [
+          "oklch(15% 0.026 246.3)",
+          "oklch(26% 0.026 246.3)",
+          "oklch(37% 0.026 246.3)",
+          "oklch(48% 0.026 246.3)",
+          "oklch(60% 0.026 246.3)",
+          "oklch(72% 0.026 246.3)",
+          "oklch(84% 0.026 246.3)",
+          "oklch(95% 0.026 246.3)"
+        ]
+      },
+      "ink-3": {
+        "role": "neutral",
+        "displayName": "Tertiary Ink",
+        "canonical": "#5f6b76",
+        "oklch": "oklch(52.2% 0.023 245.9)",
+        "tonalRamp": [
+          "oklch(15% 0.023 245.9)",
+          "oklch(26% 0.023 245.9)",
+          "oklch(37% 0.023 245.9)",
+          "oklch(48% 0.023 245.9)",
+          "oklch(60% 0.023 245.9)",
+          "oklch(72% 0.023 245.9)",
+          "oklch(84% 0.023 245.9)",
+          "oklch(95% 0.023 245.9)"
+        ]
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Rule",
+        "canonical": "#cfd8de",
+        "oklch": "oklch(87.7% 0.013 236.6)",
+        "tonalRamp": [
+          "oklch(15% 0.013 236.6)",
+          "oklch(26% 0.013 236.6)",
+          "oklch(37% 0.013 236.6)",
+          "oklch(48% 0.013 236.6)",
+          "oklch(60% 0.013 236.6)",
+          "oklch(72% 0.013 236.6)",
+          "oklch(84% 0.013 236.6)",
+          "oklch(95% 0.013 236.6)"
+        ]
+      },
+      "rule-soft": {
+        "role": "neutral",
+        "displayName": "Soft Rule",
+        "canonical": "#e6ecef",
+        "oklch": "oklch(93.9% 0.008 228.9)",
+        "tonalRamp": [
+          "oklch(15% 0.008 228.9)",
+          "oklch(26% 0.008 228.9)",
+          "oklch(37% 0.008 228.9)",
+          "oklch(48% 0.008 228.9)",
+          "oklch(60% 0.008 228.9)",
+          "oklch(72% 0.008 228.9)",
+          "oklch(84% 0.008 228.9)",
+          "oklch(95% 0.008 228.9)"
+        ]
+      },
+      "tint": {
+        "role": "tertiary",
+        "displayName": "Security Tint",
+        "canonical": "#e2eeef",
+        "oklch": "oklch(94.0% 0.013 202.9)",
+        "tonalRamp": [
+          "oklch(15% 0.013 202.9)",
+          "oklch(26% 0.013 202.9)",
+          "oklch(37% 0.013 202.9)",
+          "oklch(48% 0.013 202.9)",
+          "oklch(60% 0.013 202.9)",
+          "oklch(72% 0.013 202.9)",
+          "oklch(84% 0.013 202.9)",
+          "oklch(95% 0.013 202.9)"
+        ]
+      },
+      "tint-ink": {
+        "role": "tertiary",
+        "displayName": "Tint Ink",
+        "canonical": "#b1cccf",
+        "oklch": "oklch(82.6% 0.029 204.8)",
+        "tonalRamp": [
+          "oklch(15% 0.029 204.8)",
+          "oklch(26% 0.029 204.8)",
+          "oklch(37% 0.029 204.8)",
+          "oklch(48% 0.029 204.8)",
+          "oklch(60% 0.029 204.8)",
+          "oklch(72% 0.029 204.8)",
+          "oklch(84% 0.029 204.8)",
+          "oklch(95% 0.029 204.8)"
+        ]
+      },
+      "tint-2": {
+        "role": "tertiary",
+        "displayName": "Tint Wash",
+        "canonical": "#f1f7f7",
+        "oklch": "oklch(97.2% 0.006 197.1)",
+        "tonalRamp": [
+          "oklch(15% 0.006 197.1)",
+          "oklch(26% 0.006 197.1)",
+          "oklch(37% 0.006 197.1)",
+          "oklch(48% 0.006 197.1)",
+          "oklch(60% 0.006 197.1)",
+          "oklch(72% 0.006 197.1)",
+          "oklch(84% 0.006 197.1)",
+          "oklch(95% 0.006 197.1)"
+        ]
+      },
+      "annot": {
+        "role": "primary",
+        "displayName": "Annotation Blue",
+        "canonical": "#1f5f8b",
+        "oklch": "oklch(46.7% 0.096 243.1)",
+        "tonalRamp": [
+          "oklch(15% 0.096 243.1)",
+          "oklch(26% 0.096 243.1)",
+          "oklch(37% 0.096 243.1)",
+          "oklch(48% 0.096 243.1)",
+          "oklch(60% 0.096 243.1)",
+          "oklch(72% 0.096 243.1)",
+          "oklch(84% 0.096 243.1)",
+          "oklch(95% 0.096 243.1)"
+        ]
+      },
+      "annot-wash": {
+        "role": "primary",
+        "displayName": "Annotation Wash",
+        "canonical": "#d9e7f0",
+        "oklch": "oklch(92.0% 0.019 235.7)",
+        "tonalRamp": [
+          "oklch(15% 0.019 235.7)",
+          "oklch(26% 0.019 235.7)",
+          "oklch(37% 0.019 235.7)",
+          "oklch(48% 0.019 235.7)",
+          "oklch(60% 0.019 235.7)",
+          "oklch(72% 0.019 235.7)",
+          "oklch(84% 0.019 235.7)",
+          "oklch(95% 0.019 235.7)"
+        ]
+      },
+      "hl": {
+        "role": "secondary",
+        "displayName": "Highlighter Yellow",
+        "canonical": "#ffe97a",
+        "oklch": "oklch(93.0% 0.134 98.3)",
+        "tonalRamp": [
+          "oklch(15% 0.134 98.3)",
+          "oklch(26% 0.134 98.3)",
+          "oklch(37% 0.134 98.3)",
+          "oklch(48% 0.134 98.3)",
+          "oklch(60% 0.134 98.3)",
+          "oklch(72% 0.134 98.3)",
+          "oklch(84% 0.134 98.3)",
+          "oklch(95% 0.134 98.3)"
+        ]
+      },
+      "hl-soft": {
+        "role": "secondary",
+        "displayName": "Highlighter Wash",
+        "canonical": "#fff5bf",
+        "oklch": "oklch(96.5% 0.070 98.8)",
+        "tonalRamp": [
+          "oklch(15% 0.070 98.8)",
+          "oklch(26% 0.070 98.8)",
+          "oklch(37% 0.070 98.8)",
+          "oklch(48% 0.070 98.8)",
+          "oklch(60% 0.070 98.8)",
+          "oklch(72% 0.070 98.8)",
+          "oklch(84% 0.070 98.8)",
+          "oklch(95% 0.070 98.8)"
+        ]
+      },
+      "bad": {
+        "role": "neutral",
+        "displayName": "Refusal Red",
+        "canonical": "#9b2b2c",
+        "oklch": "oklch(46.4% 0.148 24.6)",
+        "tonalRamp": [
+          "oklch(15% 0.148 24.6)",
+          "oklch(26% 0.148 24.6)",
+          "oklch(37% 0.148 24.6)",
+          "oklch(48% 0.148 24.6)",
+          "oklch(60% 0.148 24.6)",
+          "oklch(72% 0.148 24.6)",
+          "oklch(84% 0.148 24.6)",
+          "oklch(95% 0.148 24.6)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Page title only. 25px at 860px and below, 22px on phones."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Transaction history heading and the open merchant's name in the margin."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Margin section heads, the rule field label, and the summary heading (14px)."
+      },
+      "column-head": {
+        "displayName": "Column Head",
+        "purpose": "Statement column heads: Date, Account, Description, Additions, Subtractions."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Base text; prose capped at 62ch."
+      },
+      "line": {
+        "displayName": "Line",
+        "purpose": "Statement lines, merchant heads and summary rows, with tabular lining figures."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Meta labels, help text, counts, status line and shortcut legend (12 to 13.5px)."
+      },
+      "wordmark": {
+        "displayName": "Wordmark",
+        "purpose": "The 'ledger' letterhead above the title."
+      },
+      "stamp": {
+        "displayName": "Stamp",
+        "purpose": "The SPECIMEN word on synthetic data. The only uppercase styling."
+      }
+    },
+    "shadows": [
+      {
+        "name": "filing-sheet-lift",
+        "value": "0 -10px 28px rgb(22 32 43 / 0.14)",
+        "purpose": "Phone only: the filing sheet fixed over scrolling statement lines. Nothing else casts a shadow."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "The single easing curve for every mark and state change."
+      },
+      {
+        "name": "hover",
+        "value": "120ms",
+        "purpose": "Background and color inversion on buttons and keys."
+      },
+      {
+        "name": "disclosure",
+        "value": "160ms",
+        "purpose": "Chevron rotates 90 degrees when a reach row opens."
+      },
+      {
+        "name": "highlighter-sweep",
+        "value": "200ms",
+        "purpose": "The highlighter band sweeps across a newly matched span."
+      },
+      {
+        "name": "line-rise",
+        "value": "200ms, 14ms stagger (capped at 10)",
+        "purpose": "The open merchant's lines rise 3px into place."
+      },
+      {
+        "name": "tick-draw",
+        "value": "220ms, 22ms stagger (capped at 12)",
+        "purpose": "A pencil tick is drawn beside each line being filed."
+      },
+      {
+        "name": "status-settle",
+        "value": "260ms",
+        "purpose": "The status line settles up 3px after a filing or an error."
+      },
+      {
+        "name": "annotate",
+        "value": "320ms",
+        "purpose": "A newly filed run lands: fades from annotation wash and drops 4px."
+      },
+      {
+        "name": "filing-hold",
+        "value": "380ms minimum",
+        "purpose": "Filing waits at least this long so the ticks land; 0 under reduced motion."
+      },
+      {
+        "name": "preview-debounce",
+        "value": "110ms",
+        "purpose": "Delay before the reach preview is fetched while the rule is typed."
+      },
+      {
+        "name": "skeleton-pulse",
+        "value": "1.4s ease-in-out infinite",
+        "purpose": "Loading bars in the table's own columns."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "none",
+        "purpose": "prefers-reduced-motion removes every animation and transition; ticks render finished."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "narrow-desktop",
+        "value": "max-width: 1180px",
+        "purpose": "Margin 330px, gutters 28px, column gap 32px, narrower account and amount columns."
+      },
+      {
+        "name": "phone",
+        "value": "max-width: 860px",
+        "purpose": "Single column, stacked lines with inline signed amounts, fixed bottom filing sheet, sticky status line with Undo, one-line summary."
+      },
+      {
+        "name": "touch",
+        "value": "hover: none",
+        "purpose": "Keycaps and the shortcut legend are hidden."
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Button",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "Ink-bordered form button for page-level actions such as Try again and Reprint the specimen.",
+      "html": "<button class=\"ds-btn\" type=\"button\">Reprint the specimen</button>",
+      "css": ".ds-btn { font-family: 'Archivo Variable', Archivo, system-ui, sans-serif; display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; font-size: 13.5px; font-weight: 600; color: var(--ink, #16202b); background: var(--paper, #ffffff); border: 1px solid var(--ink, #16202b); border-radius: 2px; cursor: pointer; transition: background-color 120ms, color 120ms; } .ds-btn:hover { background: var(--ink, #16202b); color: var(--paper, #ffffff); } .ds-btn:focus-visible { outline: 2px solid var(--annot, #1f5f8b); outline-offset: 2px; } .ds-btn:disabled { opacity: 0.5; cursor: not-allowed; }"
+    },
+    {
+      "name": "Quiet Button (Undo)",
+      "kind": "button",
+      "refersTo": "button-quiet",
+      "description": "Borderless annotation-blue action; carries Undo with its keycap on the latest filed run.",
+      "html": "<button class=\"ds-btn-quiet\" type=\"button\"><svg viewBox=\"0 0 16 16\" width=\"16\" height=\"16\" aria-hidden=\"true\"><path d=\"M5.5 3.5 L2.5 6.5 L5.5 9.5\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M2.8 6.5 H9.5 a3.6 3.6 0 0 1 0 7.2 H6.5\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\"/></svg> Undo <kbd class=\"ds-kbd\">Z</kbd></button>",
+      "css": ".ds-btn-quiet { font-family: 'Archivo Variable', Archivo, system-ui, sans-serif; display: inline-flex; align-items: center; gap: 6px; padding: 4px 6px; font-size: 13.5px; font-weight: 600; color: var(--annot, #1f5f8b); background: transparent; border: 1px solid transparent; border-radius: 2px; cursor: pointer; transition: background-color 120ms, color 120ms; } .ds-btn-quiet:hover { background: var(--annot, #1f5f8b); color: var(--paper, #ffffff); } .ds-btn-quiet:hover .ds-kbd { color: var(--annot, #1f5f8b); } .ds-btn-quiet:focus-visible { outline: 2px solid var(--annot, #1f5f8b); outline-offset: 2px; } .ds-kbd { font-family: inherit; display: inline-block; min-width: 18px; padding: 0 4px; border: 1px solid var(--rule, #cfd8de); border-radius: 2px; font-size: 11px; font-weight: 700; line-height: 16px; text-align: center; color: var(--ink-2, #44515d); background: var(--paper, #ffffff); }"
+    },
+    {
+      "name": "Category Keys",
+      "kind": "custom",
+      "refersTo": "category-key",
+      "description": "Ruled rows of numbered department keys; one press files the open merchant under that category.",
+      "html": "<div class=\"ds-keys\"><button class=\"ds-key\" type=\"button\"><kbd>1</kbd><span>Groceries</span></button><button class=\"ds-key\" type=\"button\"><kbd>2</kbd><span>Dining</span></button><button class=\"ds-key\" type=\"button\"><kbd>3</kbd><span>Monthly</span></button><button class=\"ds-key\" type=\"button\"><kbd>4</kbd><span>Travel + transit</span></button><button class=\"ds-key\" type=\"button\"><kbd>5</kbd><span>Transfer</span></button><button class=\"ds-key\" type=\"button\"><kbd>6</kbd><span>Income</span></button><button class=\"ds-key\" type=\"button\" disabled><kbd>7</kbd><span>Fees</span></button></div>",
+      "css": ".ds-keys { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 16px; border-top: 1px solid var(--ink, #16202b); max-width: 340px; } .ds-key { font-family: 'Archivo Variable', Archivo, system-ui, sans-serif; display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 5px 6px; font-size: 14px; font-weight: 600; text-align: left; color: var(--ink, #16202b); background: var(--paper, #ffffff); border: 0; border-bottom: 1px solid var(--rule, #cfd8de); border-radius: 0; cursor: pointer; transition: background-color 120ms, color 120ms; } .ds-key kbd { font-family: inherit; display: inline-grid; place-items: center; min-width: 22px; height: 22px; border: 1px solid currentColor; border-radius: 2px; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; } .ds-key:hover:not(:disabled) { background: var(--ink, #16202b); border-color: var(--ink, #16202b); color: var(--paper, #ffffff); } .ds-key:active:not(:disabled) { background: var(--annot, #1f5f8b); border-color: var(--annot, #1f5f8b); color: var(--paper, #ffffff); } .ds-key:focus-visible { outline: 2px solid var(--annot, #1f5f8b); outline-offset: 2px; } .ds-key:disabled { color: var(--ink-3, #5f6b76); cursor: not-allowed; }"
+    },
+    {
+      "name": "Rule Field",
+      "kind": "input",
+      "refersTo": "rule-input",
+      "description": "Square text field holding the rule; selecting descriptor text fills it.",
+      "html": "<div class=\"ds-field\"><label class=\"ds-field-label\" for=\"ds-rule\">Rule: description contains</label><input class=\"ds-input\" id=\"ds-rule\" value=\"SQ *BLUE HERON COFFEE\" spellcheck=\"false\"><p class=\"ds-help\">Select text in any description to set this.</p></div>",
+      "css": ".ds-field { font-family: 'Archivo Variable', Archivo, system-ui, sans-serif; max-width: 340px; } .ds-field-label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 700; font-stretch: 87.5%; color: var(--ink, #16202b); } .ds-input { font: inherit; width: 100%; font-size: 15px; font-weight: 600; padding: 8px 10px; color: var(--ink, #16202b); background: var(--paper, #ffffff); border: 1px solid var(--ink-3, #5f6b76); border-radius: 0; caret-color: var(--annot, #1f5f8b); } .ds-input:focus-visible { outline: 2px solid var(--annot, #1f5f8b); outline-offset: 0; border-color: var(--annot, #1f5f8b); } .ds-input::selection { background: var(--hl, #ffe97a); } .ds-help { margin: 6px 0 0; font-size: 12.5px; color: var(--ink-3, #5f6b76); }"
+    },
+    {
+      "name": "Statement Lines",
+      "kind": "custom",
+      "refersTo": "focused-merchant",
+      "description": "Condensed column heads over a heavy ink rule; the open merchant's lines on a tint wash, the rule's reach marked in highlighter, direction shown by column.",
+      "html": "<table class=\"ds-lines\"><thead><tr><th>Date</th><th>Description</th><th class=\"ds-num\">Additions</th><th class=\"ds-num\">Subtractions</th></tr></thead><tbody class=\"ds-open\"><tr class=\"ds-head\"><td class=\"ds-count\">8 lines</td><td><button class=\"ds-merchant\" type=\"button\"><mark class=\"ds-hl\">SQ *BLUE HERON COFFEE</mark> PORTLAND OR</button></td><td></td><td class=\"ds-num\">45.00</td></tr><tr><td class=\"ds-date\">Sep 25</td><td><mark class=\"ds-hl\">SQ *BLUE HERON COFFEE</mark> PORTLAND OR</td><td></td><td class=\"ds-num\">5.75</td></tr></tbody><tbody><tr class=\"ds-head\"><td class=\"ds-count\">2 lines</td><td><button class=\"ds-merchant\" type=\"button\">ONLINE PAYMENT THANK YOU</button> <span class=\"ds-caught\">Rule catches all 2</span></td><td class=\"ds-num\">1,050.00</td><td></td></tr></tbody></table>",
+      "css": ".ds-lines { font-family: 'Archivo Variable', Archivo, system-ui, sans-serif; width: 100%; border-collapse: collapse; font-size: 14px; color: var(--ink, #16202b); font-variant-numeric: tabular-nums lining-nums; } .ds-lines th { text-align: left; font-size: 12.5px; font-weight: 700; font-stretch: 75%; padding: 8px 8px 7px; border-top: 1px solid var(--rule, #cfd8de); border-bottom: 2px solid var(--ink, #16202b); white-space: nowrap; } .ds-lines td { padding: 7px 8px; border-bottom: 1px solid var(--rule-soft, #e6ecef); vertical-align: baseline; } .ds-lines .ds-num { text-align: right; } .ds-head td { padding-top: 11px; padding-bottom: 11px; border-bottom-color: var(--rule, #cfd8de); } .ds-count { font-size: 12.5px; color: var(--ink-3, #5f6b76); white-space: nowrap; } .ds-date { color: var(--ink-2, #44515d); white-space: nowrap; } .ds-open td { background: var(--tint-2, #f1f7f7); } .ds-merchant { font: inherit; font-weight: 600; color: var(--ink, #16202b); background: none; border: 0; padding: 0; text-align: left; cursor: pointer; } .ds-open .ds-merchant { font-weight: 700; font-size: 15px; } .ds-merchant:hover { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; } .ds-merchant:focus-visible { outline: 2px solid var(--annot, #1f5f8b); outline-offset: 2px; } .ds-hl { color: inherit; padding: 0 1px; margin: 0 -1px; background-color: transparent; background-image: linear-gradient(var(--hl, #ffe97a), var(--hl, #ffe97a)); background-repeat: no-repeat; background-position: 0 92%; background-size: 100% 46%; } .ds-caught { display: inline-block; margin-left: 10px; padding: 0 6px; font-size: 12px; font-weight: 600; background: var(--hl-soft, #fff5bf); color: var(--ink, #16202b); white-space: nowrap; }"
+    },
+    {
+      "name": "Filed Run",
+      "kind": "custom",
+      "description": "A decision written back onto the statement: blue tick, descriptor, annotation note, inline Undo on the latest run.",
+      "html": "<div class=\"ds-filed\"><span class=\"ds-tick\"><svg viewBox=\"0 0 16 16\" width=\"16\" height=\"16\" aria-hidden=\"true\"><path d=\"M2.5 8.8 L6.2 12.2 L13.6 3.6\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></span><span class=\"ds-filed-count\">12 lines</span><span class=\"ds-filed-name\">TRIMET HOP FASTPASS PORTLAND OR</span><span class=\"ds-note\"><svg viewBox=\"0 0 16 16\" width=\"14\" height=\"14\" aria-hidden=\"true\"><path d=\"M2.5 8 H12.5 M9 4.5 L12.5 8 L9 11.5\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>Travel + transit · rule “TRIMET”</span><button class=\"ds-undo\" type=\"button\"><svg viewBox=\"0 0 16 16\" width=\"16\" height=\"16\" aria-hidden=\"true\"><path d=\"M5.5 3.5 L2.5 6.5 L5.5 9.5\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M2.8 6.5 H9.5 a3.6 3.6 0 0 1 0 7.2 H6.5\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\"/></svg> Undo</button></div>",
+      "css": ".ds-filed { font-family: 'Archivo Variable', Archivo, system-ui, sans-serif; display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 2px; border-bottom: 2px solid var(--rule, #cfd8de); font-size: 14px; color: var(--ink-2, #44515d); } .ds-tick { display: flex; color: var(--annot, #1f5f8b); } .ds-filed-count { font-size: 12.5px; color: var(--ink-3, #5f6b76); white-space: nowrap; font-variant-numeric: tabular-nums; } .ds-filed-name { min-width: 0; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .ds-note { flex: none; display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; color: var(--annot, #1f5f8b); white-space: nowrap; } .ds-undo { font: inherit; margin-left: auto; display: inline-flex; align-items: center; gap: 6px; padding: 4px 6px; font-size: 13.5px; font-weight: 600; color: var(--annot, #1f5f8b); background: transparent; border: 1px solid transparent; border-radius: 2px; cursor: pointer; transition: background-color 120ms, color 120ms; } .ds-undo:hover { background: var(--annot, #1f5f8b); color: var(--paper, #ffffff); } .ds-undo:focus-visible { outline: 2px solid var(--annot, #1f5f8b); outline-offset: 2px; }"
+    },
+    {
+      "name": "Activity Summary",
+      "kind": "card",
+      "refersTo": "activity-summary",
+      "description": "The reconciliation block on security tint with a fixed guilloche tile; the only panel in the system.",
+      "html": "<section class=\"ds-summary\"><h2>Review activity summary</h2><table><tr><th>Uncategorized at start of session</th><td>55</td></tr><tr><th>Filed this session</th><td>− 12</td></tr><tr><th>Returned by undo</th><td>+ 0</td></tr><tr class=\"ds-total\"><th>Uncategorized now</th><td>43</td></tr></table><p class=\"ds-foot\">25 merchants left to file</p></section>",
+      "css": ".ds-summary { font-family: 'Archivo Variable', Archivo, system-ui, sans-serif; max-width: 360px; padding: 14px 18px 12px; border-top: 2px solid var(--ink, #16202b); color: var(--ink, #16202b); background-color: var(--tint, #e2eeef); background-image: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='12' viewBox='0 0 48 12'%3E%3Cg fill='none' stroke='%23c4dadc' stroke-width='0.5'%3E%3Cpath d='M0 3 C12 0 36 6 48 3'/%3E%3Cpath d='M0 9 C12 6 36 12 48 9'/%3E%3C/g%3E%3C/svg%3E\"); background-size: 48px 12px; } .ds-summary h2 { margin: 0 0 6px; font-size: 14px; font-weight: 700; font-stretch: 87.5%; } .ds-summary table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums lining-nums; } .ds-summary th { text-align: left; font-weight: 400; padding: 4px 0; } .ds-summary td { text-align: right; font-weight: 600; padding: 4px 0; white-space: nowrap; } .ds-summary tr + tr > * { border-top: 1px solid rgb(22 32 43 / 0.09); } .ds-summary .ds-total > * { border-top: 1.5px solid var(--ink, #16202b); font-weight: 700; padding-top: 6px; } .ds-foot { margin: 6px 0 0; font-size: 12.5px; color: var(--ink-2, #44515d); }"
+    },
+    {
+      "name": "Specimen Stamp",
+      "kind": "chip",
+      "refersTo": "specimen-stamp",
+      "description": "Synthetic-data disclosure: SPECIMEN reversed out of ink inside a 1px ink box.",
+      "html": "<p class=\"ds-specimen\"><span class=\"ds-specimen-word\">Specimen</span><span>Synthetic data. Not a real account.</span></p>",
+      "css": ".ds-specimen { font-family: 'Archivo Variable', Archivo, system-ui, sans-serif; display: inline-flex; align-items: center; gap: 12px; margin: 0; padding: 5px 12px 5px 5px; border: 1px solid var(--ink, #16202b); font-size: 12.5px; color: var(--ink-2, #44515d); } .ds-specimen-word { padding: 2px 8px; background: var(--ink, #16202b); color: var(--paper, #ffffff); font-weight: 800; font-stretch: 125%; text-transform: uppercase; letter-spacing: 0.14em; font-size: 11.5px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Annotated Statement",
+    "overview": "The interface is a printed bank statement that someone is working through with two pens. The paper is white stock with navy-black ink, figures sit in Additions and Subtractions columns, and the only panel is the activity summary, printed on a pale teal security tint with a guilloche. Nothing is a card, a chip board or a swipe queue. The work happens on the statement: each merchant is a run of lines, the rule being written is shown as highlighter on the descriptors it would catch, and each decision is written back onto the statement in annotation blue, with a pencil tick.\n\nThe density is high because a statement is dense. Rows are 14px type with 7px vertical padding, the right-hand margin holds the pending annotation (rule, reach, keys), and hierarchy comes from rules and type width instead of boxes and shadows. The system is light-only. Nothing is decorative unless it comes from security printing: microprint, tint, guilloche and the Specimen stamp.\n\nThe build refuses the one-card-at-a-time review queue and the dashboard of category chips. Categories are ruled rows of keys, and a decision persists as an annotation on the statement instead of a toast or a separate log.",
+    "keyCharacteristics": [
+      "White statement stock, navy-black ink, one security-tint panel.",
+      "Two marks only: highlighter yellow for what a rule would catch, annotation blue for what was decided.",
+      "One variable family (Archivo), with hierarchy set by its width axis: 75% column heads, 87.5% headings, 100% body, 125% wordmark and stamp.",
+      "Direction is a column, not a sign: Additions and Subtractions, tabular lining figures.",
+      "Flat paper with depth from rules: a 2px ink rule under heads and above totals, 1px rules between rows.",
+      "Keyboard-first: number keys file, J/K move, / edits the rule, Z undoes."
+    ],
+    "rules": [
+      {
+        "name": "The Two Pens Rule",
+        "body": "Highlighter yellow means only \"this rule would catch this\". Annotation blue means only \"this was decided\" (or has focus). Never swap them, never use either for decoration, emphasis or branding.",
+        "section": "colors"
+      },
+      {
+        "name": "The Security Tint Rule",
+        "body": "The teal tint and its guilloche belong to the activity summary, a reconciliation figure block. The focused-merchant wash uses the fainter tint-2 with no pattern. Never put the guilloche behind statement lines.",
+        "section": "colors"
+      },
+      {
+        "name": "The Red Is Refusal Rule",
+        "body": "Refusal red appears only when something cannot be filed or does not add up. It is never used for outflows; direction is shown by column.",
+        "section": "colors"
+      },
+      {
+        "name": "The Width Axis Rule",
+        "body": "Hierarchy is set with the width axis and weight of one family, not with a second typeface or color. Condensed (75%) is for column heads, narrow (87.5%) for headings, normal for reading, extended (125%) for identity marks only.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Figures Rule",
+        "body": "Every count, date and amount uses tabular lining figures, right-aligned in its column. Money strings come from the server already formatted; the interface never reformats a figure.",
+        "section": "typography"
+      },
+      {
+        "name": "The Printed Case Rule",
+        "body": "Merchant descriptors appear in uppercase because the bank printed them that way; that is data, not styling. The only uppercase styling in the system is the Specimen stamp.",
+        "section": "typography"
+      },
+      {
+        "name": "The Printed Flat Rule",
+        "body": "Nothing on the statement casts a shadow. When a surface needs separating, use a rule of the right weight. The one exception is a sheet that physically overlaps scrolling content on phones.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** show money in Additions and Subtractions columns with tabular lining figures, and use a signed inline amount only where the columns are hidden on phones.",
+      "**Do** mark a rule's reach with the highlighter band (lower 46% of the text) on every line it would catch, before anything is saved.",
+      "**Do** write decisions back onto the statement in annotation blue: tick, arrow, category and rule, with Undo on the latest.",
+      "**Do** separate surfaces with rules: 2px ink under column heads and above totals, 1px rule between groups, soft 1px rule between lines.",
+      "**Do** set hierarchy with Archivo's width axis and weight: 75% for column heads, 87.5% for headings, 125% only for the wordmark and stamp.",
+      "**Do** keep every filing action on a number key and show the keycap, and hide keycaps on touch devices.",
+      "**Do** use the security tint and its fixed 48 by 12px guilloche tile only on reconciliation panels."
+    ],
+    "donts": [
+      "**Don't** review merchants one card at a time or lay categories out as a board of chips; categories are ruled key rows.",
+      "**Don't** use highlighter yellow or annotation blue for anything other than reach and decision; neither is a brand or emphasis color.",
+      "**Don't** color outflows red; refusal red is for errors and mismatches only.",
+      "**Don't** add shadows to anything on the statement; the phone filing sheet is the only lifted surface.",
+      "**Don't** round anything beyond 2px, and don't round panels, fields or keys at all.",
+      "**Don't** add a second typeface for display or labels; monospace is only for inline command code.",
+      "**Don't** add uppercase, letter-spaced labels above headings; the Specimen stamp is the only uppercase styling.",
+      "**Don't** stretch the guilloche with its panel or put it behind statement lines, where it would compete with figures."
+    ]
+  }
+}

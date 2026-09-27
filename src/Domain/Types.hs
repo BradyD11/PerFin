@@ -15,6 +15,7 @@ module Domain.Types
   , centsFromDecimal
   , centsToDecimal
   , renderCents
+  , renderMagnitude
     -- * Identity
   , TransactionId (..)
     -- * Accounts
@@ -32,6 +33,7 @@ module Domain.Types
   , Category (..)
   , allCategories
   , renderCategory
+  , categoryLabel
   , parseCategory
     -- * Transactions
   , Transaction (..)
@@ -110,6 +112,16 @@ renderCents c@(Cents n) =
       pad t = if T.length t == 1 then "0" <> t else t
   in sign <> T.pack (show whole) <> "." <> pad (T.pack (show rest))
 
+-- | Absolute value with thousands separators: @Cents (-198928)@ renders as
+-- @"1,989.28"@. For statement-style columns, where direction is carried by
+-- which column the figure sits in rather than by a minus sign.
+renderMagnitude :: Cents -> Text
+renderMagnitude (Cents n) =
+  let (whole, rest) = abs n `quotRem` 100
+      groups = reverse (T.chunksOf 3 (T.reverse (T.pack (show whole))))
+      pad t = if T.length t == 1 then "0" <> t else t
+  in T.intercalate "," (map T.reverse groups) <> "." <> pad (T.pack (show rest))
+
 -- | Stable, content-derived identity for a transaction.
 --
 -- Derived in "Import.Dedup" from the fields a bank cannot reformat between
@@ -164,31 +176,55 @@ unMerchant (Merchant t) = t
 unsafeMerchant :: Text -> Merchant
 unsafeMerchant = Merchant
 
+-- | The closed set of categories.
+--
+-- Constructor order is the menu order in both the CLI prompt and the web
+-- review keys (1-7), so it is part of the interface, not an accident.
+-- @Monthly@ replaced the former @Rent@ and @Subscriptions@; stored rows are
+-- migrated in "Persistence.DB" and the old names still parse.
 data Category
-  = Groceries | Rent | Subscriptions | Dining | Transfer
+  = Groceries | Dining | Monthly | TravelTransit | Transfer
   | Income | Fees | Uncategorized
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 allCategories :: [Category]
 allCategories = [minBound .. maxBound]
 
+-- | The stable identifier: stored in the database, typed at the CLI, sent
+-- over the API. Never changes once shipped.
 renderCategory :: Category -> Text
 renderCategory = \case
   Groceries     -> "groceries"
-  Rent          -> "rent"
-  Subscriptions -> "subscriptions"
   Dining        -> "dining"
+  Monthly       -> "monthly"
+  TravelTransit -> "travel-transit"
   Transfer      -> "transfer"
   Income        -> "income"
   Fees          -> "fees"
   Uncategorized -> "uncategorized"
 
+-- | The human label. Free to change; nothing is keyed on it.
+categoryLabel :: Category -> Text
+categoryLabel = \case
+  Groceries     -> "Groceries"
+  Dining        -> "Dining"
+  Monthly       -> "Monthly"
+  TravelTransit -> "Travel + transit"
+  Transfer      -> "Transfer"
+  Income        -> "Income"
+  Fees          -> "Fees"
+  Uncategorized -> "Uncategorized"
+
+-- | Exact identifiers only, plus the two retired names, which map to the
+-- category that absorbed them so old scripts and rows keep working.
 parseCategory :: Text -> Either Text Category
 parseCategory t =
-  let needle = T.toLower (T.strip t)
-  in case filter ((== needle) . renderCategory) allCategories of
-       (c:_) -> Right c
-       []    -> Left ("unknown category: " <> t)
+  case T.toLower (T.strip t) of
+    "rent"          -> Right Monthly
+    "subscriptions" -> Right Monthly
+    needle -> case filter ((== needle) . renderCategory) allCategories of
+      (c:_) -> Right c
+      []    -> Left ("unknown category: " <> t)
 
 -- | A validated transaction. The constructor is not exported; use
 -- 'Domain.Validation.mkTransaction'.

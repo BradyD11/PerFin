@@ -14,7 +14,6 @@ module Categorize.Prompt
   , reviewLoop
   ) where
 
-import           Control.Monad      (forM_)
 import           Data.Text          (Text)
 import qualified Data.Text          as T
 import qualified Data.Text.IO       as TIO
@@ -36,9 +35,9 @@ data Answer
 --
 -- Accepts a category name (@groceries@), a unique case-insensitive prefix
 -- (@gro@), or the 1-based number shown in the menu. Ambiguous prefixes are
--- rejected rather than guessed — silently picking @Groceries@ when the user
--- typed @"s"@ and meant @Subscriptions@ would write a wrong rule that then
--- mis-categorizes every future import.
+-- rejected rather than guessed: @"t"@ could mean @transfer@ or
+-- @travel-transit@, and silently picking one would write a wrong rule that
+-- then mis-categorizes every future import.
 parseAnswer :: Text -> Maybe Answer
 parseAnswer raw = case T.toLower (T.strip raw) of
   ""  -> Just Skip
@@ -105,9 +104,9 @@ reviewLoop conn = do
               TIO.putStrLn ("  " <> renderRuleError e <> "\n")
               go rest
             Right r -> do
-              insertRule conn r
-              summary <- applyRules conn
+              -- Logged like a web decision, so `ledger undo` can revert it.
+              d <- decide conn r
               TIO.putStrLn ("  -> " <> renderCategory cat
-                            <> " (" <> T.pack (show (csUpdated summary))
+                            <> " (" <> T.pack (show (dcRows d))
                             <> " transaction(s) updated)\n")
               go rest

@@ -17,10 +17,13 @@ library
                       Import.CSV
                       Import.Dedup
                       Categorize.Rules
+                      Categorize.Review
                       Categorize.Prompt
                       Persistence.DB
                       Report.NetWorth
                       Report.Spending
+                      Server.API
+                      Server.Demo
     build-depends:    base >=4.17 && <5
                     , text
                     , time
@@ -31,12 +34,20 @@ library
                     , cryptohash-sha256
                     , base16-bytestring
                     , vector
+                    , aeson
+                    , servant
+                    , servant-server
+                    , wai
+                    , wai-app-static
+                    , warp
     default-language: Haskell2010
 
 executable ledger
     import:           warnings
     hs-source-dirs:   app
     main-is:          Main.hs
+    -- warp needs the threaded runtime for its timer manager.
+    ghc-options:      -threaded -rtsopts
     build-depends:    base, ledger-cli, text, time, optparse-applicative, bytestring
     default-language: Haskell2010
 
@@ -50,6 +61,7 @@ test-suite spec
                       Import.CSVSpec
                       Import.DedupSpec
                       Categorize.RulesSpec
+                      Categorize.ReviewSpec
                       Persistence.DBSpec
                       Report.SpendingSpec
                       Gen
