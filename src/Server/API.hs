@@ -19,6 +19,8 @@ module Server.API
 import           Control.Concurrent.MVar  (MVar, newMVar, withMVar)
 import           Control.Monad.IO.Class   (liftIO)
 import           Data.Aeson
+import qualified Data.ByteString.Lazy     as BL
+import qualified Data.Text                as T
 import           Data.Text                (Text)
 import           Data.Time                (getCurrentTime, utctDay)
 import           Database.SQLite.Simple   (Connection)
@@ -30,9 +32,12 @@ import           Servant
 import           Categorize.Review
 import           Categorize.Rules
 import           Domain.Types
-import           Domain.Validation        (normalizeMerchant)
+import           Domain.Validation        (mkAccountName, normalizeMerchant,
+                                           renderValidationError)
 import           Persistence.DB
 import           Server.Demo              (resetDemo)
+import           Import.CSV               (RowError (..))
+import           Import.Run
 
 type API =
        "api" :> "state" :> Get '[JSON] Value
@@ -40,6 +45,8 @@ type API =
   :<|> "api" :> "decisions" :> ReqBody '[JSON] DecideReq :> Post '[JSON] Value
   :<|> "api" :> "undo" :> Post '[JSON] Value
   :<|> "api" :> "demo" :> "reset" :> Post '[JSON] Value
+  :<|> "api" :> "import" :> Capture "account" Text
+         :> ReqBody '[OctetStream] BL.ByteString :> Post '[JSON] Value
   :<|> Raw
 
 newtype PatternReq = PatternReq Text
@@ -74,6 +81,7 @@ app cfg lock = serve (Proxy :: Proxy API) server
       :<|> decideH
       :<|> undoH
       :<|> resetH
+      :<|> importH
       :<|> serveDirectoryWith staticSettings
 
     previewH (PatternReq raw) = withConn $ \conn ->
@@ -112,8 +120,32 @@ app cfg lock = serve (Proxy :: Proxy API) server
     staticSettings = (defaultWebAppSettings (scStaticDir cfg))
       { ssIndices = [unsafeToPiece "index.html"] }
 
+    -- A statement upload. Refused in the demo: its ledger is shared by every
+    -- visitor, and a real statement must never land in it.
+    importH acctTxt bytes
+      | scDemo cfg = rejectWith err403
+          "Uploads are off in the specimen, so real statements never mix with \
+          \its synthetic data. Run `ledger serve --db ledger.db` to import your own."
+      | BL.length bytes > maxUpload = rejectWith err413 "That file is over 10 MB; a statement export is far smaller."
+      | otherwise = do
+          name <- either (reject . renderValidationError) pure (mkAccountName acctTxt)
+          today <- liftIO (utctDay <$> getCurrentTime)
+          withConn (\conn -> do
+            r <- runImport conn today True name bytes
+            case r of
+              Left failure -> pure (Left failure)
+              Right rep -> Right . (,) rep <$> stateJson cfg conn)
+            >>= \case
+              Left failure -> rejectWith err422 (T.intercalate "\n" (renderImportFailure failure))
+              Right (rep, st) -> pure (object ["report" .= reportJson rep, "state" .= st])
+
+    maxUpload = 10 * 1024 * 1024
+
     reject :: Text -> Handler a
-    reject msg = throwError err422
+    reject = rejectWith err422
+
+    rejectWith :: ServerError -> Text -> Handler a
+    rejectWith e msg = throwError e
       { errBody = encode (object ["error" .= msg])
       , errHeaders = [("Content-Type", "application/json")]
       }
@@ -133,6 +165,7 @@ stateJson :: ServerConfig -> Connection -> IO Value
 stateJson cfg conn = do
   rows <- reviewRows conn
   lastD <- lastDecision conn
+  accts <- listAccounts conn
   let queue = groupQueue rows
       days = map rvDay rows
       filed = length (filter ((/= Uncategorized) . rvCategory) rows)
@@ -151,6 +184,9 @@ stateJson cfg conn = do
         , "to"   .= (if null days then Nothing else Just (show (maximum days)))
         ]
     , "lastDecision" .= fmap decisionJson lastD
+    , "accounts"   .= [ object [ "name" .= unAccountName (accName a)
+                               , "type" .= renderAccountType (accType a) ]
+                      | a <- accts ]
     ]
   where
     selectable = filter (/= Uncategorized) allCategories
@@ -205,6 +241,19 @@ decisionJson d = object
   , "needle"   .= ruleNeedle (dcRule d)
   , "category" .= renderCategory (ruleCategory (dcRule d))
   , "rows"     .= dcRows d
+  ]
+
+reportJson :: ImportReport -> Value
+reportJson r = object
+  [ "account"   .= unAccountName (irAccount r)
+  , "type"      .= renderAccountType (irType r)
+  , "created"   .= irCreated r
+  , "inserted"  .= irInserted r
+  , "skipped"   .= irSkipped r
+  , "malformed" .= [ object ["line" .= reLine e, "problem" .= renderValidationError (reDetail e)]
+                   | e <- irMalformed r ]
+  , "byRules"   .= irByRules r
+  , "newOpen"   .= irNewOpen r
   ]
 
 -- | A rejected pattern is an ordinary state of the editor, not a failure, so

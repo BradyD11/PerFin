@@ -52,3 +52,15 @@ export function ArrowMark({ className }: Props) {
     </svg>
   );
 }
+
+/** Upload: a sheet going up into the ledger. Same stroke family. */
+export function UploadMark({ className }: Props) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+      <path d="M8 10.5 V2.8 M4.8 5.8 L8 2.6 L11.2 5.8" fill="none" stroke="currentColor"
+        strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M2.8 9.5 V13.2 H13.2 V9.5" fill="none" stroke="currentColor"
+        strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}

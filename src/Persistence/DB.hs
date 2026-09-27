@@ -13,6 +13,7 @@ module Persistence.DB
   , initAccountBalance
   , lookupAccount
   , listAccounts
+  , removeAccountIfEmpty
   , ImportSummary (..)
   , importRows
   , insertTransaction
@@ -222,6 +223,15 @@ listAccounts conn = do
   rows <- query_ conn
     "SELECT name, type, opening_balance, balance_as_of FROM accounts ORDER BY name"
   pure (mapMaybe toAccount rows)
+
+-- | Delete an account only if nothing references it. Used to undo an
+-- account created for an import that was then refused.
+removeAccountIfEmpty :: Connection -> AccountName -> IO ()
+removeAccountIfEmpty conn name =
+  execute conn
+    "DELETE FROM accounts WHERE name = ? \
+    \AND NOT EXISTS (SELECT 1 FROM transactions WHERE account = ?)"
+    (unAccountName name, unAccountName name)
 
 toAccount :: (Text, Text, Cents, Maybe Text) -> Maybe Account
 toAccount (n, t, bal, asOf) =

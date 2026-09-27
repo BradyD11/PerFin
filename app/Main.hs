@@ -19,6 +19,7 @@ import           Categorize.Rules
 import           Domain.Types
 import           Domain.Validation
 import           Import.CSV
+import           Import.Run
 import           Persistence.DB
 import           Report.NetWorth
 import           Report.Spending
@@ -295,35 +296,26 @@ run today = \case
 
   CmdImport db csvPath account -> do
     accName' <- orDie (mkAccountName account) renderValidationError
+    bytes <- BL.readFile csvPath
     withDb db $ \conn -> do
-      acct <- lookupAccount conn accName'
-      spec <- case acct of
-        Nothing -> die ("unknown account: " <> account
-                        <> "\nrun: ledger account init --name " <> account
-                        <> " --type <asset|liability> --balance 0.00")
-        Just a -> pure $ case accType a of
-          Liability -> creditCardSpec
-          Asset     -> checkingSpec
-      bytes <- BL.readFile csvPath
-      parsed <- orDie (parseCsv spec bytes) id
-      unless (null (pfErrors parsed)) $ do
-        TIO.putStrLn ("skipped " <> tshow (length (pfErrors parsed)) <> " malformed row(s):")
-        forM_ (pfErrors parsed) (TIO.putStrLn . ("  " <>) . renderRowError)
-      result <- importRows conn today accName' (pfRows parsed)
+      -- The CLI never creates accounts implicitly: `account init` sets the
+      -- balance anchor, and skipping it would leave net worth unanchored.
+      result <- runImport conn today False accName' bytes
       case result of
-        Left errs -> do
+        Left failure -> do
           TIO.putStrLn "import failed:"
-          forM_ errs (TIO.putStrLn . ("  " <>))
+          forM_ (renderImportFailure failure) (TIO.putStrLn . ("  " <>))
           exitFailure
-        Right s -> do
-          TIO.putStrLn ("imported " <> tshow (isInserted s)
-                        <> " new, skipped " <> tshow (isSkipped s)
+        Right r -> do
+          unless (null (irMalformed r)) $ do
+            TIO.putStrLn ("skipped " <> tshow (length (irMalformed r)) <> " malformed row(s):")
+            forM_ (irMalformed r) (TIO.putStrLn . ("  " <>) . renderRowError)
+          TIO.putStrLn ("imported " <> tshow (irInserted r)
+                        <> " new, skipped " <> tshow (irSkipped r)
                         <> " already present")
-          -- Rules are applied automatically on import so a fresh statement is
-          -- categorized as far as existing rules allow, without a second command.
-          cs <- applyRules conn
-          TIO.putStrLn (tshow (csUpdated cs) <> " categorized by rules, "
-                        <> tshow (csRemaining cs) <> " need review")
+          open' <- uncategorizedCount conn
+          TIO.putStrLn (tshow (irByRules r) <> " categorized by rules, "
+                        <> tshow open' <> " need review")
 
 signed :: Cents -> Text
 signed c@(Cents n) | n > 0 = "+" <> renderCents c

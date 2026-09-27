@@ -18,6 +18,8 @@ import           Import.CSV        (RawRow (..))
 import           Categorize.Review (ReviewRow (..))
 import           Categorize.Rules  (Rule (..), mkRule)
 import           Persistence.DB
+import           Import.Run
+import qualified Data.ByteString.Lazy.Char8 as BL8
 
 today :: Day
 today = fromGregorian 2026 9 30
@@ -342,6 +344,57 @@ tests = testGroup "Persistence.DB"
             map ruleCategory rules @?= [Monthly]
     ]
 
+  , testGroup "runImport (shared by CLI and upload)"
+    [ testCase "the upload path creates a known account; the CLI path does not" $
+        withTestDb $ \conn -> do
+          cli <- runImport conn today False card csvGood
+          either (const (pure ())) (const (assertFailure "CLI must not create")) cli
+          web <- runImport conn today True card csvGood
+          case web of
+            Left f  -> assertFailure (show f)
+            Right r -> do
+              irCreated r  @?= True
+              irType r     @?= Liability
+              irInserted r @?= 2
+
+    , testCase "an unknown account name is never created" $
+        withTestDb $ \conn -> do
+          r <- runImport conn today True (acctNamed "savings") csvGood
+          either (const (pure ())) (const (assertFailure "should refuse")) r
+          accts <- listAccounts conn
+          accts @?= []
+
+    , testCase "an unreadable file creates nothing" $
+        withTestDb $ \conn -> do
+          _ <- runImport conn today True card "\"unterminated"
+          accts <- listAccounts conn
+          accts @?= []
+
+    , testCase "a refused batch removes the account it created" $
+        withTestDb $ \conn -> do
+          r <- runImport conn today True card csvFuture
+          either (const (pure ())) (const (assertFailure "should refuse")) r
+          accts <- listAccounts conn
+          accts @?= []
+
+    , testCase "re-uploading the same file is idempotent" $
+        withTestDb $ \conn -> do
+          _ <- runImport conn today True card csvGood
+          r <- runImport conn today True card csvGood
+          fmap (\x -> (irInserted x, irSkipped x, irNewOpen x)) r @?= Right (0, 2, 0)
+
+    , testCase "malformed rows are reported and the rest imported" $
+        withTestDb $ \conn -> do
+          r <- runImport conn today True card (csvGood <> "\"nope\",\"BAD\",\"-1.00\",,\"Posted\"\n")
+          fmap (\x -> (irInserted x, length (irMalformed x))) r @?= Right (2, 1)
+
+    , testCase "rows already covered by a rule are filed on import" $
+        withTestDb $ \conn -> do
+          insertRule conn (mustRule "taco" Dining)
+          r <- runImport conn today True card csvGood
+          fmap (\x -> (irByRules x, irNewOpen x)) r @?= Right (1, 1)
+    ]
+
   , testCase "a future-dated row is rejected at the domain boundary" $
       withTestDb $ \conn -> do
         initAccountBalance conn card Liability (Cents 0) Nothing
@@ -420,3 +473,19 @@ importOk conn acct rows = do
 
 mustRule :: Text -> Category -> Rule
 mustRule n c = either (error "bad rule") id (mkRule n c)
+
+acctNamed :: Text -> AccountName
+acctNamed n = either (error "bad") id (mkAccountName n)
+
+csvGood :: BL8.ByteString
+csvGood = BL8.unlines
+  [ "\"DATE\",\"DESCRIPTION\",\"AMOUNT\",\"CHECK #\",\"STATUS\""
+  , "\"09/12/2026\",\"SQ *TACO BOYS TEMPE AZ\",\"-12.62\",,\"Posted\""
+  , "\"09/10/2026\",\"ONLINE PAYMENT THANK YOU\",\"575.00\",,\"Posted\""
+  ]
+
+csvFuture :: BL8.ByteString
+csvFuture = BL8.unlines
+  [ "\"DATE\",\"DESCRIPTION\",\"AMOUNT\",\"CHECK #\",\"STATUS\""
+  , "\"12/01/2030\",\"FUTURE\",\"-4.00\",,\"Posted\""
+  ]

@@ -27,6 +27,20 @@ export type LedgerState = {
   totals: { items: number; filed: number; openItems: number; openMerchants: number };
   period: { from: string | null; to: string | null };
   lastDecision: Decision | null;
+  accounts: Account[];
+};
+
+export type Account = { name: string; type: "asset" | "liability" };
+
+export type ImportReport = {
+  account: string;
+  type: "asset" | "liability";
+  created: boolean;
+  inserted: number;
+  skipped: number;
+  malformed: { line: number; problem: string }[];
+  byRules: number;
+  newOpen: number;
 };
 
 export type MerchantHit = { key: string; count: number; total: Money };
@@ -81,4 +95,28 @@ export const api = {
   undo: () =>
     call<{ undone: Decision | null; reverted: number; state: LedgerState }>("POST", "/api/undo"),
   reset: () => call<LedgerState>("POST", "/api/demo/reset"),
+  importCsv: (account: string, file: File) =>
+    upload<{ report: ImportReport; state: LedgerState }>(
+      `/api/import/${encodeURIComponent(account)}`,
+      file,
+    ),
 };
+
+/** Send a file as the raw request body; the server parses it. */
+async function upload<T>(path: string, file: File): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/octet-stream" },
+      body: file,
+    });
+  } catch {
+    throw new ApiError("The ledger server isn't answering.");
+  }
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new ApiError(detail?.error ?? `The server refused the file (${res.status}).`);
+  }
+  return res.json() as Promise<T>;
+}

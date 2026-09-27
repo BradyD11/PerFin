@@ -16,6 +16,7 @@ library
                       Domain.Validation
                       Import.CSV
                       Import.Dedup
+                      Import.Run
                       Categorize.Rules
                       Categorize.Review
                       Categorize.Prompt
